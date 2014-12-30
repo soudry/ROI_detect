@@ -49,7 +49,7 @@ v2struct(flags)
 %%%%%%%%%%%%%%
 % set up saving folders
 homefolder = GetHomeFolder;
-folder=fullfile( homefolder, 'FISTAResults',data_name);
+folder=fullfile( homefolder, 'FISTA_Results',data_name);
 if save_results
     if ~exist(folder,'dir') % make folder for dataset if does not exist
         mkdir(folder)
