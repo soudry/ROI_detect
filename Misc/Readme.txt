@@ -1,10 +1,5 @@
 Files in folder:
 
-*Main Functions:
-RunFista - run the FISTA algorithm for solving group lasso
-RunSVDmethod - run coordinate descent gready pca to find neuronal activity and (non-negtive) shapes 
-SimulateData
-
 * Auxilarry functions for RunFista:
 GetActivity
 GetBox
