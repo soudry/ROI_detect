@@ -1,6 +1,6 @@
 function [specs,params, flags]=GetDefaultInput(data_name)
 %% input
-% data_name - name of dataset
+% data_name - name of dataset (this is used as a switch to decide which paramters to use)
 %% ouput (see details in code below)
 % specs- dataset specifications (struct)
 % params - algorithms parameters (struct)
