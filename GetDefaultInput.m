@@ -28,7 +28,7 @@ save_x=0; %should we save x in FISTA?
 
 %params        
 TargetAreaRatio=[]; % percentage of spatial area that infered weights cover, if empty algorithm uses Neuron_number_range
-iterations=50; % number of Fista iterations
+iterations=10; % number of Fista iterations
 prev_iteration=0; % if not zero, load previous run with same sigma and lambda. 
 lambda=0.002;  % regularization constant (only initial guess if adapt_lambda=1)
 eta=0.5; %lambda learning rate when we adapt lambda- is there a better way to set it?

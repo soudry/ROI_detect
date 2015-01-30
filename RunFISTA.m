@@ -70,7 +70,7 @@ end
 [MSE_top, MSE_bottom] = MSEbounds( data, with_bias);
 
 % initialization for optimization
-if prev_iteration==0 %#ok
+if prev_iteration==0 
     x=data*0;
     if adapt_bias  %B=(1,1,...,1)/T
         p=0.3; %initial guess for background is the 30% quantile
@@ -250,7 +250,7 @@ for kk=1:iterations
             end
         end
     end
-    if save_results&&save_each&&(kk>1)&&(lambda_prev~=lambda) %do not delete starting point
+    if save_results&&save_each&&(kk>1)&&(prev_lambda~=lambda) %do not delete starting point
         delete(name_prev);
     end  
     
