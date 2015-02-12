@@ -76,10 +76,8 @@ if prev_iteration==0
         p=0.3; %initial guess for background is the 30% quantile
         u=quantile(data,p,D); 
         [u,f] = GreedyNNPCA(data,u);
-        bias=bsxfun(@times,u,f);
     else
-        u=0; f=0;
-        bias=0;
+        u=0; f=0;        
     end
     t_initial=0; %time of simulation
 
@@ -89,12 +87,13 @@ if prev_iteration==0
     sparsity_ratio=MSE_array;    
 else    
     name_prev=[fullpath '_k=' num2str(prev_iteration) '.mat'];
-    load(name_prev,'x','u','params','flags','performance','neuron_stats','t_elapsed','iterations_so_far');
+    load(name_prev,'x','u','f','params','flags','performance','neuron_stats','t_elapsed','iterations_so_far');
     t_initial=t_elapsed;
     v2struct(performance) 
     lambda=params.lambda;
     lambda_sparse=params.lambda_sparse;
 end
+bias=bsxfun(@times,u,f);
 
 if ~strcmp(computer,'GLNXA64') %if not on Yeti...
     if gpuDeviceCount>1; %if this computer have cuda support, use it
@@ -227,7 +226,7 @@ for kk=1:iterations
     %% save    
     name_current=[fullpath '_k=' num2str(iterations_so_far) '.mat'];
     name_prev=[fullpath '_k=' num2str(iterations_so_far-1) '.mat'];
-    FISTA_params=v2struct(sigma_vector,g,lambda,lambda_sparse,iterations,eta,TargetAreaRatio);   
+    params=v2struct(sigma_vector,g,lambda,lambda_sparse,iterations,eta,TargetAreaRatio);   
     performance=v2struct(Error_array,MSE_array,MSE_top,MSE_bottom,sparsity_ratio,t_elapsed); 
     
     if save_each||(kk==iterations)||((~adapt_lambda)&&all(~x(:)))
@@ -250,7 +249,7 @@ for kk=1:iterations
             end
         end
     end
-    if save_results&&save_each&&(kk>1)&&(prev_lambda~=lambda) %do not delete starting point
+    if save_results&&~save_each&&(kk>1)%do not delete starting point
         delete(name_prev);
     end  
     
@@ -262,6 +261,6 @@ for kk=1:iterations
 
 end
 
-
+FISTA_params=params;
 
 end

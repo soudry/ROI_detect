@@ -20,7 +20,7 @@ function [specs,params, flags]=GetDefaultInput(data_name)
 
 %control flags
 adapt_bias=0; % use FISTA with non-stationary basline removal
-adapt_lambda=1; % do SGD on lambda so we get target sparisity level or neuron numbers
+adapt_lambda=0; % do SGD on lambda so we get target sparisity level or neuron numbers
 non_negative=0; %inforce non-negativity on x?
 save_results=1; % save_results?
 save_each=0; % flag to save: 'each' iteration
