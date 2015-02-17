@@ -17,7 +17,6 @@ v2struct(params)
 
 % flags - control flags
 v2struct(flags)
-% centralized : remove mean from data?
 % adapt_bias : use FISTA with bias?
 % adapt_lambda : do SGD on lambda 
 % with_bias : add squared mean to MSE_bottom ?
@@ -151,7 +150,7 @@ for kk=1:iterations
         y=x+((t-1)/t_next)*(x-x_prev);
 
     % Adaptive restart from Donoghue2012    
-    do_restart=((numel(data)*mean2((q-y).*(x-x_prev)))>0);
+    do_restart=(mean2((q-y).*(x-x_prev)))>0);
     if do_restart
         t_next=1;
         y=x;        
