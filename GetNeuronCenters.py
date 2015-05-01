@@ -83,9 +83,10 @@ def gaussian_group_lasso(data, sig, lam=0.5, tol=1e-7, iters=100,NonNegative=Fal
         
     if not TargetAreaRatio:
         return fista(data, prox, Omega,A, lam, L, tol=tol,NonNegative=NonNegative, iters=iters, verbose=verbose)
-    else:
-        lam_high=lam*1e2;
-        lam_low=lam*1e-3;
+    else: #Do exponential search to find lam
+        lam_high=-1;
+        lam_low=-1;
+        rho=10; #exponential search constant
         cond=True       
         x=None
         
@@ -100,8 +101,13 @@ def gaussian_group_lasso(data, sig, lam=0.5, tol=1e-7, iters=100,NonNegative=Fal
                 lam_low=lam
             else:
                 return x
-                cond=False    
-            lam=(lam_high+lam_low)/2
+                cond=False
+            if lam_high==-1:
+                lam_high=lam*rho
+            elif lam_low==-1:
+                lam_low=lam/rho
+            else:
+                lam=(lam_high+lam_low)/2
             
 
 def fista(data, prox, Omega, A, lam, L, x0=None, tol=1e-6, iters=100,NonNegative=False, verbose=False):
