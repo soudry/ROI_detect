@@ -11,7 +11,7 @@ Folders:
 * Plotting - Auxilary Functions for plotting only
 * Datasets - some datasets for demonstrations
 
- - Part of the code had been has been converted to matlab
+ - Part of the code had been has been converted to Python
  * GetNeuronCenters.py - a pythonized version of RunFISTA.m. The code has been simplified, and some modifications have been made.
  For example, when adapting the regularization cosntant, the binary search was replaced with an exponential search. 
  Also, the background substraction has been removed, as it probably can be made more efficiently on thunder.
