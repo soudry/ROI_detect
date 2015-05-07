@@ -76,7 +76,7 @@ def LocalNMF(data, centers,activity, sig, NonNegative=False, tol=1e-7, iters=100
 # Initialize Parameters
     dims=data.shape
     D=len(dims)
-    R=3*sig #size of bounding box is 3 times size of neuron
+    R=3*np.array(sig) #size of bounding box is 3 times size of neuron
     L=len(centers)
     shapes=[]
     boxes=[]
@@ -87,28 +87,30 @@ def LocalNMF(data, centers,activity, sig, NonNegative=False, tol=1e-7, iters=100
     for ll in range(L):
         boxes.append(GetBox(centers[ll],R,dims))
         if D>3:
-            xm  = arange(dims[0]).reshape(dims[0],1,1)
-            ym  = arange(dims[1]).reshape(1,dims[1],1)
-            zm  = arange(dims[2]).reshape(1,1,dims[2])
+            xm  = arange(dims[1]).reshape(dims[1],1,1)
+            ym  = arange(dims[2]).reshape(1,dims[2],1)
+            zm  = arange(dims[3]).reshape(1,1,dims[3])
             
             temp=exp( -(((xm-centers[ll][0])**2)/(2*sig[0])) \
             -((ym-centers[ll][1])**2)/(2*sig[1]) \
             -((zm-centers[ll][2])**2)/(2*sig[2]) )/sqrt(2*pi)/prod(sig);
+            temp=temp.reshape((dims[1],dims[2],dims[3],1))
             temp=tile(temp,(1, 1, 1, 2)) #just so we can use Region Cut
         else:
-            xm  = range(dims[0]).reshape(dims[0],1)
-            ym  = range(dims[1]).reshape(1,dims[1])
+            xm  = arange(dims[1]).reshape(dims[1],1)
+            ym  = arange(dims[2]).reshape(1,dims[2])
             
             temp=exp( -(((xm-centers[ll][0])**2)/(2*sig[0])) \
             -((ym-centers[ll][1])**2)/(2*sig[1])) /sqrt(2*pi)/prod(sig);
+            temp=temp.reshape((dims[1],dims[2],1))
             temp=tile(temp,(1, 1, 2)) #just so we can use Region Cut
             
-        temp=RegionCut(temp,boxes[ll]);
-        shapes[ll]=temp[1];
+        temp=RegionCut(temp,boxes[ll])
+        shapes.append(temp[:,1])
 
-        residual=RegionAdd(residual,-dot(shapes[ll],activity[ll].T),boxes[ll])
+        residual=RegionAdd(residual,-dot(reshape(shapes[ll],(len(shapes[ll]),1)),reshape(activity[ll],(1, dims[0])),boxes[ll]))
     
-# Main Loop
+## Main Loop
     
     for kk in range(iter):
         for ll in range(L):
@@ -145,21 +147,17 @@ def LocalNMF(data, centers,activity, sig, NonNegative=False, tol=1e-7, iters=100
             print('{0:1d}: MSE = {1:.3f}'.format(kk, MSE))
         
     
-    return MSE_array,shapes,activity,boxes
+#    return MSE_array,shapes,activity,boxes
     
 T=50; X=200; Y=100
-data=np.random.randn(X,Y)
+data=np.random.randn(T,X,Y)
 # centers=[[ 40, 30]]
-centers=[40, 30]
+centers=[[40, 30]]
 activity=[np.random.randn(T)]
-# sig=[3, 3, 3]
 sig = [3, 3]
-# R=3*sig # this concatenates the list 3 times
 R=3*np.array(sig) 
 dims=data.shape
-GetBox(centers, R, dims)
-
-#LocalNMF(data, centers,activity, sig, NonNegative=True
+LocalNMF(data, centers,activity, sig, NonNegative=True)
     
 # test python 3d:
 #Z = np.ones((3, 4, 5, 5))
