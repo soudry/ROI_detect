@@ -149,12 +149,16 @@ def LocalNMF(data, centers,activity, sig, NonNegative=False, tol=1e-7, iters=100
     
 T=50; X=200; Y=100
 data=np.random.randn(X,Y)
-centers=[[ 40, 30]]
+# centers=[[ 40, 30]]
+centers=[40, 30]
 activity=[np.random.randn(T)]
-sig=[3, 3, 3]
-R=3*sig
+# sig=[3, 3, 3]
+sig = [3, 3]
+# R=3*sig # this concatenates the list 3 times
+R=3*np.array(sig) 
 dims=data.shape
 GetBox(centers, R, dims)
+
 #LocalNMF(data, centers,activity, sig, NonNegative=True
     
 # test python 3d:
