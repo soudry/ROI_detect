@@ -150,7 +150,7 @@ for kk=1:iterations
         y=x+((t-1)/t_next)*(x-x_prev);
 
     % Adaptive restart from Donoghue2012    
-    do_restart=(mean2((q-y).*(x-x_prev)))>0);
+    do_restart=(mean2((q-y).*(x-x_prev)))>0;
     if do_restart
         t_next=1;
         y=x;        

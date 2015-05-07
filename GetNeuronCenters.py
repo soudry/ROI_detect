@@ -220,7 +220,7 @@ if __name__ == "__main__":
     import scipy.io
     import pylab
 
-    data_source=2
+    data_source=1
     
     if data_source==1: # generate 2D model data        
         T = 100

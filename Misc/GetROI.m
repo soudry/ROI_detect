@@ -1,5 +1,6 @@
 function ROI = GetROI(pic,cent)
-% find ROI and activity for image 'pic' given centers
+% find ROIs (regions of intrest) for image 'pic' given centers -  by
+% choosing all the non-zero points nearest to each center
 
 BW_locations=pic>0;
 components=bwlabeln(BW_locations);
