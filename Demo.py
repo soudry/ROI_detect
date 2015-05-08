@@ -33,6 +33,10 @@ if __name__ == "__main__":
         mat = loadmat('Datasets/data_exp2D')
         data = transpose(mat['data'], [2, 0, 1])
         sig = (5, 5)  # neurons size
+    elif data_source == 3:   # Use experimental 3D data
+        mat = loadmat('Datasets/data_exp3D')
+        data = transpose(mat['data'], [3, 0, 1, 2])
+        sig = (5, 5, 5)  # neurons size
 
     TargetRange = [0.03, 0.04]
     lam = 1

@@ -5,7 +5,7 @@ from numpy.linalg import norm
 from scipy.ndimage.filters import gaussian_filter, maximum_filter
 from scipy.ndimage.morphology import generate_binary_structure
 from scipy.ndimage.measurements import label
-from numpy import shape, ones, array, meshgrid, nanmean, nan
+from numpy import shape, ones, array, meshgrid, nanmean, nan, where, argsort
 
 """ See example script at the bottom.
 Some comments:
@@ -216,8 +216,9 @@ def GetCenters(image):
         peaks[2] - magnitude ("height") of peak
     """
 
-    # define an 8-connected neighborhood
-    neighborhood = generate_binary_structure(2, 2)
+    # define an 8 (26 for 3D)-connected neighborhood
+    D = len(image.shape)
+    neighborhood = generate_binary_structure(D, D)
 
     # apply the local maximum filter; all pixel of maximal value
     # in their neighborhood are set to 1
@@ -229,25 +230,30 @@ def GetCenters(image):
     ind = image == 0
     local_max[ind] = 0
 
-    width = len(local_max[0])
-    peaks_x = []
-    peaks_y = []
-    magnitude = []
-    posn = 0
-    for row in local_max:
-        for col in row:
-            if col == 1:
-                y = posn // width - 1
-                x = posn % width - 1
-                peaks_y.append(y)
-                peaks_x.append(x)
-                magnitude.append(image[y, x])
-            posn += 1
+    # width = len(local_max[0])
+    # peaks_x = []
+    # peaks_y = []
+    # magnitude = []
+    # posn = 0
+    # for row in local_max:
+    #     for col in row:
+    #         if col == 1:
+    #             y = posn // width - 1
+    #             x = posn % width - 1
+    #             peaks_y.append(y)
+    #             peaks_x.append(x)
+    #             magnitude.append(image[y, x])
+    #         posn += 1
+    # indices = sorted(range(len(magnitude)), key=lambda k: magnitude[k])
+    # indices = indices[::-1]
+    # peaks_x = [peaks_x[ii] for ii in indices]
+    # peaks_y = [peaks_y[ii] for ii in indices]
+    # magnitude = [magnitude[ii] for ii in indices]
+    # peaks = [peaks_y, peaks_x, magnitude]
 
-    indices = sorted(range(len(magnitude)), key=lambda k: magnitude[k])
-    indices = indices[::-1]
-    peaks_x = [peaks_x[ii] for ii in indices]
-    peaks_y = [peaks_y[ii] for ii in indices]
-    magnitude = [magnitude[ii] for ii in indices]
-    peaks = [peaks_y, peaks_x, magnitude]
+    peaks = array(where(local_max)) - 1  # why minus one ??
+    magnitude = image[list(peaks)]
+    indices = argsort(magnitude)[::-1]
+    peaks = list(peaks[:, indices]) + [magnitude[indices]]
+
     return peaks
