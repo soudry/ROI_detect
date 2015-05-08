@@ -1,9 +1,11 @@
-from numpy import zeros, maximum, transpose, reshape, prod, std, sum, nan_to_num, mean,min,max
+from numpy import zeros, maximum, reshape, prod, std, sum, nan_to_num, mean, max, sqrt
 from numpy.linalg import norm
 from scipy.ndimage.filters import gaussian_filter, maximum_filter
 from scipy.ndimage.morphology import generate_binary_structure
-from math import sqrt
-import matplotlib.pyplot as plt
+from scipy.ndimage.measurements import label
+from numpy import shape, ones, array, meshgrid, nanmean, nan
+
+
 
 
 """ See example script at the bottom. 
@@ -165,7 +167,39 @@ def fista(data, prox, Omega, A, lam, L, x0=None, tol=1e-6, iters=100,NonNegative
     return xk
 
 
-def detect_peaks(image):
+def GetROI(pic, cent):
+    # find ROIs (regions of interest) for image 'pic' given centers -  by
+    # choosing all the non-zero points nearest to each center
+    BW_locations = pic > 0
+    dims = shape(pic)
+    components, _ = label(BW_locations, ones([3] * len(dims)))
+    ROI = -ones(dims, dtype=int)
+    mesh = meshgrid(indexing='ij', *map(range, dims))
+    distances = array(
+        [sqrt(sum((mesh[i] - c[i]) ** 2 for i in range(len(dims)))) for c in cent])
+    min_dist_ind = distances.argmin(0)
+    for ll in range(len(cent)):
+        ind1 = components[tuple(cent[ll])]
+        ind2 = min_dist_ind[tuple(cent[ll])]
+        comp = (components == ind1)
+        comp[min_dist_ind != ind2] = 0
+        ROI[comp] = ll
+    return ROI
+
+def GetActivity(x, ROI):
+    # Find activity from video x (size (XxYxZ...)xT ) given ROIs (regions of
+    # intrest) by taking the spatial average in each region
+    dims = shape(x)
+    L = max(ROI) + 1
+    activity = zeros((L, dims[-1]))
+    ROI.shape = -1
+    x = x.reshape(-1, dims[-1])
+    x[ROI == -1] = nan
+    for ll in range(L):
+        activity[ll] = nanmean(x[ROI == ll], 0)
+    return activity
+
+def GetCenters(image):
     """
     Takes a image and detect the peaks using local maximum filter.
     input: a 2D image
@@ -211,70 +245,4 @@ def detect_peaks(image):
     
     return peaks
     
-    #### Example Script
-
-if __name__ == "__main__":
-    from numpy.random import rand, randn, randint
-    from numpy import eye
-    import time
-    import scipy.io
-    import pylab
-
-    data_source=1
-    
-    if data_source==1: # generate 2D model data        
-        T = 100
-        sz = (100,100)      
-        sig = (5,5) #neurons size
-        foo = 0.1*randn(*((T,) + sz))
-        bar = zeros((T,) + sz)
-        for i in range(20):
-            ind = tuple([randint(x) for x in sz])
-            for j in range(T):
-                bar[(j,)+ind] = randn()
-        data = foo + 10*gaussian_filter(bar,(0,)+sig)
-    elif data_source==2:   # Use experimental 2D data  
-        mat = scipy.io.loadmat('Datasets/data_exp2D')
-        data=transpose(mat['data'],[2, 0, 1])
-        sig = (5,5) #neurons size
-        
-    TargetRange=[0.03, 0.04]    
-    lam=1;
-#    TargetRange=[] 
-    
-    x=gaussian_group_lasso(data,sig,lam,NonNegative=True,TargetAreaRatio=TargetRange,verbose=True)
-    y=std(x,0)
-    peaks=detect_peaks(y)    
-    z=std(data,0)
-
-
-# Plot
-
-    ax=plt.subplot2grid((1,2), (0,0), colspan=1)
-    ax.imshow(z)
-    plt.hold(True)
-    ax.scatter(peaks[1],peaks[0],s=2*sig[1],marker='x',c='black')   
-#    ax.scatter(peaks[1],peaks[0],s=2*sig[1],marker='o',c='white')   
-    ax.set_title('Data with detected centers')
-    ax2=plt.subplot2grid((1,2), (0,1), colspan=1)    
-    ax2.imshow(y) 
-    ax2.set_title('Inferred x')
-    
-    
-    ## Video
-    dt=1e-2;
-    fig=plt.figure()
-    ax=fig.add_subplot(111)
-    mi=min(data)
-    ma=max(data)
-    for ii in range(data.shape[0]):        
-        time.sleep(dt)        
-        ax.set_title('Data with detected centers')
-        ax.scatter(peaks[1],peaks[0],s=2*sig[1],marker='o',c='white') 
-        plt.hold(True)
-#        ax.scatter(peaks[1],peaks[0],s=3*sig[1],marker='x',c='black')           
-#        plt.hold(True)
-        ax.imshow(data[ii,:,:],vmin=mi, vmax=ma,aspect='auto')         
-        pylab.draw()  
-        plt.hold(False) 
-
+ 

@@ -1,5 +1,7 @@
 from os import getcwd
 from numpy import sum, zeros, reshape, r_, ix_, exp, arange, sqrt, pi, dot, outer, prod
+
+
 import numpy as np
 
 
@@ -51,7 +53,6 @@ def RegionCut(X, box, *args):
     if len(dims) - 1 != len(box):
         raise Exception('box has the wrong number of dimensions')
     return X[ix_(*map(lambda a: range(*a), box))].reshape((-1, dims[-1]))
-
 
 def LocalNMF(data, centers, activity, sig, NonNegative=False, tol=1e-7, iters=100, verbose=False):
     #        Input:
@@ -106,6 +107,7 @@ def LocalNMF(data, centers, activity, sig, NonNegative=False, tol=1e-7, iters=10
         residual = RegionAdd(
             residual, -outer(shapes[ll], activity[ll]), boxes[ll])
 
+
 # Main Loop
 
     for kk in range(iters):
@@ -156,4 +158,4 @@ activity = [np.random.randn(T)]
 sig = [3, 3]
 R = 3 * np.array(sig)
 dims = data.shape
-LocalNMF(data, centers, activity, sig, NonNegative=True)
+MSE_array, shapes, activity, boxes=LocalNMF(data, centers, activity, sig, NonNegative=True)

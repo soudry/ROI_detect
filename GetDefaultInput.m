@@ -22,7 +22,7 @@ function [specs,params, flags]=GetDefaultInput(data_name)
 adapt_bias=0; % use FISTA with non-stationary basline removal
 adapt_lambda=0; % do SGD on lambda so we get target sparisity level or neuron numbers
 non_negative=0; %inforce non-negativity on x?
-save_results=1; % save_results?
+save_results=0; % save_results?
 save_each=0; % flag to save: 'each' iteration
 save_x=0; %should we save x in FISTA?
 
@@ -60,7 +60,7 @@ switch data_name
         sigma_vector=sigma*[1 1]; %only useful for 3D data
     case 'Exp3D'        
         non_negative=1; 
-        save_results=1; % save_results?
+        save_results=0; % save_results?
         TargetAreaRatio=0.01; % percentage of spatial area that infered weights cover, if empty algorithm uses Neuron_number_range
         adapt_lambda=1; % do SGD on lambda so MSE-> MSE_bottom
         sigma=2; %hsize=sigma*10;       
