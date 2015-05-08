@@ -249,7 +249,5 @@ def GetCenters(image):
     peaks_x = [peaks_x[ii] for ii in indices]
     peaks_y = [peaks_y[ii] for ii in indices]
     magnitude = [magnitude[ii] for ii in indices]
-
     peaks = [peaks_y, peaks_x, magnitude]
-
     return peaks

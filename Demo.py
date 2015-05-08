@@ -43,12 +43,14 @@ if __name__ == "__main__":
     cent = GetCenters(pic)
     ROI = GetROI(pic,  (array(cent)[:2]).T)
     activity = GetActivity(x, ROI)
-    LocalNMF(data.transpose(1, 2, 0),  (array(cent)[:2]).T, activity,
-             sig, NonNegative=True, verbose=True)
+    MSE_array, shapes, activity, boxes = LocalNMF(data.transpose(1, 2, 0),
+                                                  (array(cent)[:2]).T, activity, sig, NonNegative=True, verbose=True)
 
     z = std(data, 0)
 
-# Plot
+
+# Plot FISTA
+
     ax = plt.subplot2grid((1, 2), (0, 0), colspan=1)
     ax.imshow(z)
     plt.hold(True)
@@ -75,3 +77,8 @@ if __name__ == "__main__":
         ax.imshow(data[ii, :, :], vmin=mi, vmax=ma, aspect='auto')
         plt.draw()
         plt.hold(False)
+
+
+# Plot NMF
+
+    # plot()
