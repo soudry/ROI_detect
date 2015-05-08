@@ -20,8 +20,8 @@ def GetBox(centers, R, dims):
     D = len(R)
     box = zeros((D, 2), dtype=int)
     for dd in range(D):
-        box[dd, 0] = max(centers[dd] - R[dd], 0)
-        box[dd, 1] = min(centers[dd] + R[dd] + 1, dims[dd])
+        box[dd, 0] = max((centers[dd] - R[dd], 0))
+        box[dd, 1] = min((centers[dd] + R[dd] + 1, dims[dd]))
     return box
 
 
@@ -53,6 +53,7 @@ def RegionCut(X, box, *args):
     if len(dims) - 1 != len(box):
         raise Exception('box has the wrong number of dimensions')
     return X[ix_(*map(lambda a: range(*a), box))].reshape((-1, dims[-1]))
+
 
 def LocalNMF(data, centers, activity, sig, NonNegative=False, tol=1e-7, iters=100, verbose=False):
     #        Input:
@@ -92,14 +93,14 @@ def LocalNMF(data, centers, activity, sig, NonNegative=False, tol=1e-7, iters=10
             temp = exp(-(((xm - centers[ll][0]) ** 2) / (2 * sig[0]))
                        - ((ym - centers[ll][1]) ** 2) / (2 * sig[1])
                        - ((zm - centers[ll][2]) ** 2) / (2 * sig[2])) / sqrt(2 * pi) / prod(sig)
-            temp = temp.reshape((dims[1], dims[2], dims[3], 1))
+            temp = temp.reshape((dims[0], dims[1], dims[2], 1))
         else:
-            xm = arange(dims[1]).reshape(dims[1], 1)
-            ym = arange(dims[2]).reshape(1, dims[2])
+            xm = arange(dims[0]).reshape(dims[0], 1)
+            ym = arange(dims[1]).reshape(1, dims[1])
 
             temp = exp(-(((xm - centers[ll][0]) ** 2) / (2 * sig[0]))
                        - ((ym - centers[ll][1]) ** 2) / (2 * sig[1])) / sqrt(2 * pi) / prod(sig)
-            temp = temp.reshape((dims[1], dims[2], 1))
+            temp = temp.reshape((dims[0], dims[1], 1))
 
         temp = RegionCut(temp, boxes[ll])
         shapes.append(temp[:, 0])
@@ -107,9 +108,7 @@ def LocalNMF(data, centers, activity, sig, NonNegative=False, tol=1e-7, iters=10
         residual = RegionAdd(
             residual, -outer(shapes[ll], activity[ll]), boxes[ll])
 
-
 # Main Loop
-
     for kk in range(iters):
         for ll in range(L):
             # add region
@@ -158,4 +157,5 @@ activity = [np.random.randn(T)]
 sig = [3, 3]
 R = 3 * np.array(sig)
 dims = data.shape
-MSE_array, shapes, activity, boxes=LocalNMF(data, centers, activity, sig, NonNegative=True)
+MSE_array, shapes, activity, boxes = LocalNMF(
+    data, centers, activity, sig, NonNegative=True)

@@ -19,8 +19,8 @@ if __name__ == "__main__":
     data_source = 1
 
     if data_source == 1:  # generate 2D model data
-        T = 100
-        sz = (100, 100)
+        T = 30
+        sz = (50, 100)
         sig = (5, 5)  # neurons size
         foo = 0.1 * randn(*((T,) + sz))
         bar = zeros((T,) + sz)
@@ -41,16 +41,14 @@ if __name__ == "__main__":
         data, sig, lam, NonNegative=True, TargetAreaRatio=TargetRange, verbose=True)
     pic = std(x, 0)
     cent = GetCenters(pic)
-    ROI = GetROI(pic,  array([cent[1], cent[0]]).T)
+    ROI = GetROI(pic,  (array(cent)[:2]).T)
     activity = GetActivity(x, ROI)
-    LocalNMF(data,  array([cent[1], cent[0]]).T, activity,
+    LocalNMF(data.transpose(1, 2, 0),  (array(cent)[:2]).T, activity,
              sig, NonNegative=True, verbose=True)
 
     z = std(data, 0)
 
-
 # Plot
-
     ax = plt.subplot2grid((1, 2), (0, 0), colspan=1)
     ax.imshow(z)
     plt.hold(True)

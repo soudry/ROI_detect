@@ -197,9 +197,9 @@ def GetActivity(x, ROI):
     # intrest) by taking the spatial average in each region
     dims = shape(x)
     L = max(ROI) + 1
-    activity = zeros((L, dims[-1]))
+    activity = zeros((L, dims[0]))
     ROI.shape = -1
-    x = x.reshape(-1, dims[-1])
+    x = x.reshape(-1, dims[0])
     x[ROI == -1] = nan
     for ll in range(L):
         activity[ll] = nanmean(x[ROI == ll], 0)
@@ -249,6 +249,7 @@ def GetCenters(image):
     peaks_x = [peaks_x[ii] for ii in indices]
     peaks_y = [peaks_y[ii] for ii in indices]
     magnitude = [magnitude[ii] for ii in indices]
+
     peaks = [peaks_y, peaks_x, magnitude]
 
     return peaks
