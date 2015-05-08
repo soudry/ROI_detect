@@ -43,7 +43,8 @@ if __name__ == "__main__":
     pic=std(x,0)
     cent=GetCenters(pic)  
     ROI=GetROI(pic, cent)
-    Activity=GetActivity(x.reshape(sz,T), ROI)
+    activity=GetActivity(x.reshape(sz,T), ROI)
+    LocalNMF(data.reshape(sz,T), cent, activity, sig, NonNegative=True,verbose=True)
     
     z=std(data,0)
 
