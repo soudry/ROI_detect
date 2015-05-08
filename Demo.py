@@ -41,15 +41,15 @@ if __name__ == "__main__":
         data, sig, lam, NonNegative=True, TargetAreaRatio=TargetRange, verbose=True)
     pic = std(x, 0)
     cent = GetCenters(pic)
-    ROI = GetROI(pic,  array([cent[1], cent[0]]).T)
+    ROI = GetROI(pic,  array([cent[0], cent[1]]).T)
     activity = GetActivity(x, ROI)
-    LocalNMF(data,  array([cent[1], cent[0]]).T, activity,
+    MSE_array, shapes, activity, boxes=LocalNMF(data,  array([cent[0], cent[1]]).T, activity,
              sig, NonNegative=True, verbose=True)
 
     z = std(data, 0)
 
 
-# Plot
+# Plot FISTA
 
     ax = plt.subplot2grid((1, 2), (0, 0), colspan=1)
     ax.imshow(z)
@@ -77,3 +77,8 @@ if __name__ == "__main__":
         ax.imshow(data[ii, :, :], vmin=mi, vmax=ma, aspect='auto')
         plt.draw()
         plt.hold(False)
+
+
+# Plot NMF
+
+    plot()
