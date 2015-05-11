@@ -41,17 +41,16 @@ if __name__ == "__main__":
         sig = (2, 2, 2)  # neurons size
         TargetRange = [0.005, 0.015]
 
-    
     lam = 1
 #    TargetRange=[]
     x = gaussian_group_lasso(
         data, sig, lam, NonNegative=True, TargetAreaRatio=TargetRange, verbose=True)
     pic = std(x, 0)
     cent = GetCenters(pic)
-    ROI = GetROI(pic,  (array(cent)[:2]).T)
+    ROI = GetROI(pic,  (array(cent)[:-1]).T)
     activity = GetActivity(x, ROI)
-    MSE_array, shapes, activity, boxes = LocalNMF(data.transpose(1, 2, 0),
-                                                  (array(cent)[:2]).T, activity, sig, NonNegative=True, verbose=True)
+    MSE_array, shapes, activity, boxes = LocalNMF(data.transpose(range(1, len(cent)) + [0]),
+                                                  (array(cent)[:-1]).T, activity, sig, NonNegative=True, verbose=True)
 
     z = std(data, 0)
 
