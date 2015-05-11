@@ -16,7 +16,7 @@ if __name__ == "__main__":
     from BlockGroupLasso import gaussian_group_lasso, GetCenters, GetROI, GetActivity
     from BlockLocalNMF import LocalNMF
 
-    data_source = 3
+    data_source = 1
 
     if data_source == 1:  # generate 2D model data
         T = 30
@@ -29,7 +29,7 @@ if __name__ == "__main__":
             for j in range(T):
                 bar[(j,) + ind] = randn()
         data = foo + 10 * gaussian_filter(bar, (0,) + sig)
-        TargetRange = [0.03, 0.04]
+        TargetRange = [0.01, 0.03]
     elif data_source == 2:   # Use experimental 2D data
         mat = loadmat('Datasets/data_exp2D')
         data = transpose(mat['data'], [2, 0, 1])
@@ -49,7 +49,7 @@ if __name__ == "__main__":
     cent = GetCenters(pic)
     ROI = GetROI(pic,  (array(cent)[:-1]).T)
     activity = GetActivity(x, ROI)
-    MSE_array, shapes, activity, boxes = LocalNMF(data.transpose(range(1, len(cent)) + [0]),
+    MSE_array, shapes, activity, boxes = LocalNMF(data.transpose(list(range(1, len(cent))) + [0]),
                                                   (array(cent)[:-1]).T, activity, sig, NonNegative=True, verbose=True)
 
     z = std(data, 0)

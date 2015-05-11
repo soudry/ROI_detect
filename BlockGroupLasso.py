@@ -45,7 +45,7 @@ near the edges and used overlapping patchs to compnesate.
 """
 
 
-def gaussian_group_lasso(data, sig, lam=0.5, tol=1e-7, iters=100, NonNegative=False, TargetAreaRatio=[], verbose=False):
+def gaussian_group_lasso(data, sig, lam=0.5, tol=1e-8, iters=100, NonNegative=False, TargetAreaRatio=[], verbose=False):
     """ Solve gaussian group lasso problem min_x 1/2*||Ax-data||_F^2 + lam*Omega(x)
         where Ax is convolution of x with a Gaussian filter A,
         and Omega is the group l1/l2 norm promoting spatial sparsity
