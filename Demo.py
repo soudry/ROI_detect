@@ -16,7 +16,7 @@ if __name__ == "__main__":
     from BlockGroupLasso import gaussian_group_lasso, GetCenters, GetROI, GetActivity
     from BlockLocalNMF import LocalNMF
 
-    data_source = 1
+    data_source = 3
 
     if data_source == 1:  # generate 2D model data
         T = 30
@@ -29,16 +29,19 @@ if __name__ == "__main__":
             for j in range(T):
                 bar[(j,) + ind] = randn()
         data = foo + 10 * gaussian_filter(bar, (0,) + sig)
+        TargetRange = [0.03, 0.04]
     elif data_source == 2:   # Use experimental 2D data
         mat = loadmat('Datasets/data_exp2D')
         data = transpose(mat['data'], [2, 0, 1])
         sig = (5, 5)  # neurons size
+        TargetRange = [0.03, 0.04]
     elif data_source == 3:   # Use experimental 3D data
         mat = loadmat('Datasets/data_exp3D')
         data = transpose(mat['data'], [3, 0, 1, 2])
-        sig = (5, 5, 5)  # neurons size
+        sig = (2, 2, 2)  # neurons size
+        TargetRange = [0.005, 0.015]
 
-    TargetRange = [0.03, 0.04]
+    
     lam = 1
 #    TargetRange=[]
     x = gaussian_group_lasso(

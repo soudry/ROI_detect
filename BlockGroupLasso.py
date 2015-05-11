@@ -108,9 +108,9 @@ def gaussian_group_lasso(data, sig, lam=0.5, tol=1e-7, iters=100, NonNegative=Fa
                 return x
                 cond = False
             if lam_high == -1:
-                lam_high = lam * rho
+                lam = lam * rho
             elif lam_low == -1:
-                lam_low = lam / rho
+                lam = lam / rho
             else:
                 lam = (lam_high + lam_low) / 2
 
