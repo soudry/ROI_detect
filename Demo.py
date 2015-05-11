@@ -49,7 +49,7 @@ if __name__ == "__main__":
     cent = GetCenters(pic)
     ROI = GetROI(pic,  (array(cent)[:-1]).T)
     activity = GetActivity(x, ROI)
-    MSE_array, shapes, activity, boxes = LocalNMF(data.transpose(range(1, len(cent)) + [0]),
+    MSE_array, shapes, activity, boxes = LocalNMF(data,
                                                   (array(cent)[:-1]).T, activity, sig, NonNegative=True, verbose=True)
 
     z = std(data, 0)
