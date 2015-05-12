@@ -108,11 +108,11 @@ def LocalNMF(data, centers, activity, sig, NonNegative=False, tol=1e-7, iters=10
 # Main Loop
     for kk in range(iters):
         for ll in range(L):
-            # add region
+            # Add region
             residual = RegionAdd(
                 residual, outer(activity[ll], shapes[ll]), boxes[ll])
 
-            # cut region
+            # Cut region
             X = RegionCut(residual, boxes[ll])
 
             # NonNegative greedy PCA
