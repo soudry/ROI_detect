@@ -66,7 +66,8 @@ if __name__ == "__main__":
     cent = GetCenters(pic_x) # centers extracted from fista output using RegionalMax
     ROI = GetROI(pic_x,  (array(cent)[:-1]).T) # ROI around each center, using watersheding on non-zero regions
     activity = GetActivity(x, ROI) #temporal traces of activity for each neuron, averaged over each ROI
-    residual=array(data.transpose(list(range(1, len(cent))) + [0]))
+#    residual=array(data.transpose(list(range(1, len(cent))) + [0]))`
+    residual=array(data)
     MSE_array, shapes, activity, boxes = LocalNMF(residual,(array(cent)[:-1]).T, activity, sig, NonNegative, verbose=True)
     
     L=len(shapes) #number of detected neurons
