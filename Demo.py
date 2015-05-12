@@ -70,15 +70,15 @@ if __name__ == "__main__":
     for ll in range(L): # add all detected neurons        
         denoised_data = RegionAdd(denoised_data, outer(shapes[ll], activity[ll]), boxes[ll])
     
-## Plot Results
-    ax = plt.subplot2grid((1, 3), (0, 0), colspan=1)
-    ax.imshow(z)
+    ax = plt.subplot(131)
+    ax.scatter(cent[1], cent[0], s=4 * sig[1], marker='x', c='black')
     plt.hold(True)
-    ax.scatter(cent[1], cent[0], s=2 * sig[1], marker='x', c='black')
 #    ax.scatter(peaks[1],peaks[0],s=2*sig[1],marker='o',c='white')
     ax.set_title('Data + centers')
+    ax.imshow(z if data_source != 3 else z.max(-1))
     ax2 = plt.subplot2grid((1, 3), (0, 1), colspan=1)
-    ax2.imshow(pic)
+    ax2 = plt.subplot(132)
+    ax2.imshow(pic if data_source != 3 else pic.max(-1))
     ax2.set_title('Inferred x')
     ax3 = plt.subplot2grid((1, 3), (0, 2), colspan=1)
     ax3.imshow(percentile(denoised_data, 90, axis=2))
@@ -94,11 +94,12 @@ if __name__ == "__main__":
     for ii in range(data.shape[0]):
         sleep(dt)
         ax = plt.subplot2grid((1, 3), (0, 0), colspan=1)        
-        ax.scatter(cent[1], cent[0], s=2 * sig[1], marker='o', c='white')
+        ax.scatter(cent[1], cent[0], s=4 * sig[1], marker='o', c='white')
         plt.hold(True)
 #        ax.scatter(peaks[1],peaks[0],s=3*sig[1],marker='x',c='black')
 #        plt.hold(True)
-        ax.imshow(data[ii, :, :], vmin=mi, vmax=ma, aspect='auto')
+        ax.imshow(data[ii] if data_source != 3 else data[ii].max(-1),
+                  vmin=mi, vmax=ma, aspect='auto')
         ax.set_title('Data + centers')        
         plt.draw()
         plt.hold(False)

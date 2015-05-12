@@ -63,7 +63,8 @@ def gaussian_group_lasso(data, sig, lam=0.5, tol=1e-8, iters=100, NonNegative=Fa
             and TargetAreaRatio[1]
             verbose - print progress if true
         Output:
-            xk - the final value of the iterative minimization """
+            xk - the final value of the iterative minimization 
+    """
 
     def A(data, do_transpose=False):
         if type(do_transpose) is bool:
@@ -134,7 +135,8 @@ def fista(data, prox, Omega, A, lam, L, x0=None, tol=1e-6, iters=100, NonNegativ
             as non-negative
             verbose - print progress if true
         Output:
-            xk - the final value of the iterative minimization """
+            xk - the final value of the iterative minimization 
+    """
     tk1 = 1
     if x0 is None:
         x0 = zeros(A(data, do_transpose=True).shape)
@@ -207,8 +209,7 @@ def GetActivity(x, ROI):
 
 
 def GetCenters(image):
-    """
-    Takes a image and detect the peaks using local maximum filter.
+    """ Take a image and detect the peaks using local maximum filter.
     input: a 2D image
     output: peaks list, in which
         peaks[0] - y coordinates
@@ -229,29 +230,7 @@ def GetCenters(image):
     # mask.
     ind = image == 0
     local_max[ind] = 0
-
-    # width = len(local_max[0])
-    # peaks_x = []
-    # peaks_y = []
-    # magnitude = []
-    # posn = 0
-    # for row in local_max:
-    #     for col in row:
-    #         if col == 1:
-    #             y = posn // width - 1
-    #             x = posn % width - 1
-    #             peaks_y.append(y)
-    #             peaks_x.append(x)
-    #             magnitude.append(image[y, x])
-    #         posn += 1
-    # indices = sorted(range(len(magnitude)), key=lambda k: magnitude[k])
-    # indices = indices[::-1]
-    # peaks_x = [peaks_x[ii] for ii in indices]
-    # peaks_y = [peaks_y[ii] for ii in indices]
-    # magnitude = [magnitude[ii] for ii in indices]
-    # peaks = [peaks_y, peaks_x, magnitude]
-
-    peaks = array(where(local_max)) - 1  # why minus one ??
+    peaks = array(where(local_max))  # - 1  # why minus one ??
     magnitude = image[list(peaks)]
     indices = argsort(magnitude)[::-1]
     peaks = list(peaks[:, indices]) + [magnitude[indices]]
