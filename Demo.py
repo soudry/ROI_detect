@@ -76,6 +76,8 @@ if __name__ == "__main__":
         denoised_data = RegionAdd(denoised_data, outer(shapes[ll], activity[ll]), boxes[ll])
     pic_denoised=percentile(denoised_data, 90, axis=-1)    
     
+    
+## Plot Results
     ax = plt.subplot(131)
     ax.scatter(cent[1], cent[0], s=4 * sig[1], marker='x', c='black')
     plt.hold(True)
