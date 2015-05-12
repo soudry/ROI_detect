@@ -1,8 +1,5 @@
 from os import getcwd
-from numpy import sum, zeros, reshape, r_, ix_, exp, arange, sqrt, pi, dot, outer, prod
-
-
-import numpy as np
+from numpy import sum, zeros, array, reshape, r_, ix_, exp, arange, dot, outer, prod
 
 
 def GetHomeFolder():
@@ -27,11 +24,11 @@ def GetBox(centers, R, dims):
 
 def RegionAdd(Z, X, box):
     # Parameters
-    #  Z : dataset Tx[XxY(xZ)] array
-    #  box : Dx2 array defining spatial box to put X in
-    #  X : Input array (Txprod(diff(box,1)))
+    #  Z : array, shape (T, X, Y[, Z]), dataset
+    #  box : array, shape (D, 2), array defining spatial box to put X in
+    #  X : array, shape (T, prod(diff(box,1))), Input
     # Returns
-    #  Z=Z+X on box region - a [XxYxZ...]xT array
+    #  Z : array, shape (T, X, Y[, Z]), Z+X on box region
     Z[ix_(*([range(len(Z))] + map(lambda a: range(*a), box)))] += reshape(X,
                                                                           (r_[-1, box[:, 1] - box[:, 0]]))
     return Z
@@ -39,13 +36,12 @@ def RegionAdd(Z, X, box):
 
 def RegionCut(X, box, *args):
     # CUTREGION Summary of this function goes here
-    # Parameters:
-    #  X -  an [XxYxZ...]xT array
-    #  box - region to cut
-    #  args - specificy dimensions of whole picture (optional)
-
-    # return:
-    #  res - Matrix of size prod(R)xT
+    # Parameters
+    #  X : array, shape (T, X, Y[, Z])
+    #  box : array, shape (D, 2), region to cut
+    #  args : tuple, specificy dimensions of whole picture (optional)
+    # Returns
+    #  res : array, shape (T, prod(diff(box,1))),
     dims = X.shape
     if len(args) > 0:
         dims = args[0]
@@ -89,33 +85,20 @@ def LocalNMF(data, centers, activity, sig, NonNegative=False, tol=1e-7, iters=10
     # Initialize Parameters
     dims = data.shape
     D = len(dims)
-    R = 3 * np.array(sig)  # size of bounding box is 3 times size of neuron
+    R = 3 * array(sig)  # size of bounding box is 3 times size of neuron
     L = len(centers)
     shapes = []
-    boxes = np.zeros((L, D-1, 2), dtype=int)
+    boxes = zeros((L, D - 1, 2), dtype=int)
     MSE_array = []
     residual = data
 
 # Initialize shapes, activity, and residual
     for ll in range(L):
         boxes[ll] = GetBox(centers[ll], R, dims[1:])
-        if D > 3:
-            xm = arange(dims[1]).reshape(dims[1], 1, 1)
-            ym = arange(dims[2]).reshape(1, dims[2], 1)
-            zm = arange(dims[3]).reshape(1, 1, dims[3])
-
-            temp = exp(-(((xm - centers[ll][0]) ** 2) / (2 * sig[0]))
-                       - ((ym - centers[ll][1]) ** 2) / (2 * sig[1])
-                       - ((zm - centers[ll][2]) ** 2) / (2 * sig[2])) / sqrt(2 * pi) / prod(sig)
-            temp = temp.reshape((1, dims[1], dims[2], dims[3]))
-        else:
-            xm = arange(dims[1]).reshape(dims[1], 1)
-            ym = arange(dims[2]).reshape(1, dims[2])
-
-            temp = exp(-(((xm - centers[ll][0]) ** 2) / (2 * sig[0]))
-                       - ((ym - centers[ll][1]) ** 2) / (2 * sig[1])) / sqrt(2 * pi) / prod(sig)
-            temp = temp.reshape((1, dims[1], dims[2]))
-
+        temp = [(arange(dims[i + 1]) - centers[ll][i]) ** 2 / (2 * sig[i])
+                for i in range(D - 1)]
+        temp = exp(-sum(ix_(*temp)))
+        temp.shape = (1,) + dims[1:]
         temp = RegionCut(temp, boxes[ll])
         shapes.append(temp[0])
 
@@ -161,6 +144,8 @@ def LocalNMF(data, centers, activity, sig, NonNegative=False, tol=1e-7, iters=10
 
     return MSE_array, shapes, activity, boxes
 
+
+import numpy as np
 
 T = 50
 X = 200

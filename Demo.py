@@ -20,7 +20,7 @@ if __name__ == "__main__":
 
     if data_source == 1:  # generate 2D model data
         T = 30
-        sz = (50, 100)
+        sz = (100, 50)
         sig = (5, 5)  # neurons size
         foo = 0.1 * randn(*((T,) + sz))
         bar = zeros((T,) + sz)
@@ -49,21 +49,22 @@ if __name__ == "__main__":
     cent = GetCenters(pic)
     ROI = GetROI(pic,  (array(cent)[:-1]).T)
     activity = GetActivity(x, ROI)
-    MSE_array, shapes, activity, boxes = LocalNMF(data, (array(cent)[:-1]).T, activity, sig, NonNegative=True, verbose=True)
+    MSE_array, shapes, activity, boxes = LocalNMF(
+        data, (array(cent)[:-1]).T, activity, sig, NonNegative=True, verbose=True)
 
     z = std(data, 0)
 
 
 # Plot FISTA
 
-    ax = plt.subplot2grid((1, 2), (0, 0), colspan=1)
-    ax.imshow(z)
+    ax = plt.subplot(121)
+    ax.scatter(cent[1], cent[0], s=4 * sig[1], marker='x', c='black')
     plt.hold(True)
-    ax.scatter(cent[1], cent[0], s=2 * sig[1], marker='x', c='black')
 #    ax.scatter(peaks[1],peaks[0],s=2*sig[1],marker='o',c='white')
+    ax.imshow(z if data_source != 3 else z.max(-1))
     ax.set_title('Data with detected centers')
-    ax2 = plt.subplot2grid((1, 2), (0, 1), colspan=1)
-    ax2.imshow(pic)
+    ax2 = plt.subplot(122)
+    ax2.imshow(pic if data_source != 3 else pic.max(-1))
     ax2.set_title('Inferred x')
 
     # Video
@@ -75,11 +76,12 @@ if __name__ == "__main__":
     for ii in range(data.shape[0]):
         sleep(dt)
         ax.set_title('Data with detected centers')
-        ax.scatter(cent[1], cent[0], s=2 * sig[1], marker='o', c='white')
+        ax.scatter(cent[1], cent[0], s=4 * sig[1], marker='o', c='white')
         plt.hold(True)
 #        ax.scatter(peaks[1],peaks[0],s=3*sig[1],marker='x',c='black')
 #        plt.hold(True)
-        ax.imshow(data[ii, :, :], vmin=mi, vmax=ma, aspect='auto')
+        ax.imshow(data[ii] if data_source != 3 else data[ii].max(-1),
+                  vmin=mi, vmax=ma, aspect='auto')
         plt.draw()
         plt.hold(False)
 
