@@ -29,8 +29,9 @@ def RegionAdd(Z, X, box):
     #  X : array, shape (T, prod(diff(box,1))), Input
     # Returns
     #  Z : array, shape (T, X, Y[, Z]), Z+X on box region
-    Z[ix_(*([range(len(Z))] + map(lambda a: range(*a), box)))] += reshape(X,
-                                                                          (r_[-1, box[:, 1] - box[:, 0]]))
+    
+    temp=list(map(lambda a: range(*a), box))
+    Z[ix_(*([range(len(Z))] + temp))] += reshape(X,(r_[-1, box[:, 1] - box[:, 0]]))
     return Z
 
 
@@ -47,10 +48,10 @@ def RegionCut(X, box, *args):
         dims = args[0]
     if len(dims) - 1 != len(box):
         raise Exception('box has the wrong number of dimensions')
-    return X[ix_(*([range(dims[0])] + map(lambda a: range(*a), box)))].reshape((dims[0], -1))
+    return X[ix_(*([list(range(dims[0]))] + list(map(lambda a: range(*a), box))))].reshape((dims[0], -1))
 
 
-def LocalNMF(data, centers, activity, sig, NonNegative=False, tol=1e-7, iters=100, verbose=False):
+def LocalNMF(data, centers, activity, sig, NonNegative=False, tol=1e-6, iters=100, verbose=False):
     """
     Parameters
     ----------
@@ -85,7 +86,7 @@ def LocalNMF(data, centers, activity, sig, NonNegative=False, tol=1e-7, iters=10
     # Initialize Parameters
     dims = data.shape
     D = len(dims)
-    R = 3 * array(sig)  # size of bounding box is 3 times size of neuron
+    R = 4 * array(sig)  # size of bounding box is 4 times size of neuron
     L = len(centers)
     shapes = []
     boxes = zeros((L, D - 1, 2), dtype=int)
@@ -133,14 +134,15 @@ def LocalNMF(data, centers, activity, sig, NonNegative=False, tol=1e-7, iters=10
                 residual, -outer(activity[ll], shapes[ll]), boxes[ll])
 
         # Measure MSE
-        MSE = sum(residual ** 2) / prod(dims)
+        MSE = sum(residual ** 2) 
+        if verbose:
+            print('{0:1d}: MSE = {1:.3f}'.format(kk, MSE))
         if kk > 0 and abs(1 - MSE / MSE_array[-1]) < tol:
             break
         if kk == (iters - 1):
             print('Maximum iteration limit reached')
         MSE_array.append(MSE)
-        if verbose:
-            print('{0:1d}: MSE = {1:.3f}'.format(kk, MSE))
+
 
     return MSE_array, shapes, activity, boxes
 

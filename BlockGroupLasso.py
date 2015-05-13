@@ -45,7 +45,7 @@ near the edges and used overlapping patchs to compnesate.
 """
 
 
-def gaussian_group_lasso(data, sig, lam=0.5, tol=1e-8, iters=100, NonNegative=False, TargetAreaRatio=[], verbose=False):
+def gaussian_group_lasso(data, sig, lam=0.5, tol=1e-2, iters=30, NonNegative=False, TargetAreaRatio=[], verbose=False):
     """ Solve gaussian group lasso problem min_x 1/2*||Ax-data||_F^2 + lam*Omega(x)
         where Ax is convolution of x with a Gaussian filter A,
         and Omega is the group l1/l2 norm promoting spatial sparsity
@@ -116,7 +116,7 @@ def gaussian_group_lasso(data, sig, lam=0.5, tol=1e-8, iters=100, NonNegative=Fa
                 lam = (lam_high + lam_low) / 2
 
 
-def fista(data, prox, Omega, A, lam, L, x0=None, tol=1e-6, iters=100, NonNegative=False, verbose=False):
+def fista(data, prox, Omega, A, lam, L, x0=None, tol=1e-8, iters=100, NonNegative=False, verbose=False):
     """ Fast Iterative Soft Threshold Algorithm for solving min_x 1/2*||Ax-data||_F^2 + lam*Omega(x)
         Input:
             data - matrix of the data B in the regularized optimization
@@ -151,9 +151,6 @@ def fista(data, prox, Omega, A, lam, L, x0=None, tol=1e-6, iters=100, NonNegativ
         qk = yk - 2 / L * A(yk, do_transpose=[False, True]) + v
         xk = prox(qk, lam / L)
 
-        if mean(xk - xk1) < tol:
-            return xk
-
         tk1 = (1 + sqrt(1 + 4 * (tk ** 2))) / 2
         yk = xk + (tk - 1) / tk1 * (xk - xk1)
 
@@ -162,6 +159,12 @@ def fista(data, prox, Omega, A, lam, L, x0=None, tol=1e-6, iters=100, NonNegativ
         if do_restart:
             tk1 = tk
             yk = xk
+            
+        norm_xk=norm(xk)
+        if norm_xk==0:
+            return xk
+        elif norm(xk - xk1)/norm(xk1) < tol:
+            return xk
 
         if verbose:
             resid = A(xk, do_transpose=False) - data
@@ -170,7 +173,7 @@ def fista(data, prox, Omega, A, lam, L, x0=None, tol=1e-6, iters=100, NonNegativ
             loss = norm(resid, ord='fro') ** 2
             reg = Omega(xk)
             print('{0:1d}: Obj = {1:.1f}, Loss = {2:.1f}, Reg = {3:.1f}, Norm = {4:.1f}'.format(
-                kk, 0.5 * loss + lam * reg, loss, reg, norm(xk)))
+                kk, 0.5 * loss + lam * reg, loss, reg, norm_xk))
     return xk
 
 
