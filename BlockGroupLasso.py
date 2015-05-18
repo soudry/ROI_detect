@@ -159,11 +159,11 @@ def fista(data, prox, Omega, A, lam, L, x0=None, tol=1e-8, iters=100, NonNegativ
         if do_restart:
             tk1 = tk
             yk = xk
-            
-        norm_xk=norm(xk)
-        if norm_xk==0:
+
+        norm_xk = norm(xk)
+        if norm_xk == 0:
             return xk
-        elif norm(xk - xk1)/norm(xk1) < tol:
+        elif norm(xk - xk1) / norm(xk1) < tol:
             return xk
 
         if verbose:
@@ -198,16 +198,16 @@ def GetROI(pic, cent):
 
 
 def GetActivity(x, ROI):
-    # Find activity from video x (size (XxYxZ...)xT ) given ROIs (regions of
+    # Find activity from video x (size Tx(XxYxZ...)) given ROIs (regions of
     # intrest) by taking the spatial average in each region
     dims = shape(x)
     L = max(ROI) + 1
     activity = zeros((L, dims[0]))
     ROI.shape = -1
-    x = x.reshape(-1, dims[0])
-    x[ROI == -1] = nan
+    x = x.reshape(dims[0], -1)
+    x[:, ROI == -1] = nan
     for ll in range(L):
-        activity[ll] = nanmean(x[ROI == ll], 0)
+        activity[ll] = nanmean(x[:, ROI == ll], 1)
     return activity
 
 
