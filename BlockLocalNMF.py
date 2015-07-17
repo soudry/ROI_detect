@@ -1,16 +1,6 @@
-from os import getcwd
-from numpy import sum, zeros, array, reshape, r_, ix_, exp, arange, dot, outer, prod
-
-
-def GetHomeFolder():
-    # Obtains the folder in which data is saved - change accordingly
-    return getcwd()
-
-
-def GetFileName(params):
-    # generate file names for saving  (important parameters should appear in
-    # name)
-    return 'Saved_Results_sigma=' + str(params['sigma_vector'][0]) + '_lambda0=' + str(params['lambda'])
+from numpy import sum, zeros, ones, array, reshape, r_, ix_, exp, arange,\
+    dot, outer, nan_to_num, percentile
+# from scipy.ndimage.measurements import center_of_mass
 
 
 def GetBox(centers, R, dims):
@@ -29,14 +19,13 @@ def RegionAdd(Z, X, box):
     #  X : array, shape (T, prod(diff(box,1))), Input
     # Returns
     #  Z : array, shape (T, X, Y[, Z]), Z+X on box region
-    
-    temp=list(map(lambda a: range(*a), box))
-    Z[ix_(*([range(len(Z))] + temp))] += reshape(X,(r_[-1, box[:, 1] - box[:, 0]]))
+
+    temp = list(map(lambda a: range(*a), box))
+    Z[ix_(*([range(len(Z))] + temp))] += reshape(X, (r_[-1, box[:, 1] - box[:, 0]]))
     return Z
 
 
 def RegionCut(X, box, *args):
-    # CUTREGION Summary of this function goes here
     # Parameters
     #  X : array, shape (T, X, Y[, Z])
     #  box : array, shape (D, 2), region to cut
@@ -51,7 +40,8 @@ def RegionCut(X, box, *args):
     return X[ix_(*([list(range(dims[0]))] + list(map(lambda a: range(*a), box))))].reshape((dims[0], -1))
 
 
-def LocalNMF(data, centers, activity, sig, NonNegative=False, tol=1e-6, iters=100, verbose=False):
+def LocalNMF(data, centers, activity, sig, NonNegative=False,
+             tol=1e-6, iters=100, verbose=False, adaptBias=False):
     """
     Parameters
     ----------
@@ -71,6 +61,8 @@ def LocalNMF(data, centers, activity, sig, NonNegative=False, tol=1e-6, iters=10
         maximum number of iterations
     verbose : boolean
         print progress if true
+    adaptBias : boolean
+        subtract rank 1 estimate of bias
 
     Returns
     -------
@@ -102,9 +94,33 @@ def LocalNMF(data, centers, activity, sig, NonNegative=False, tol=1e-6, iters=10
         temp.shape = (1,) + dims[1:]
         temp = RegionCut(temp, boxes[ll])
         shapes.append(temp[0])
-
-        residual = RegionAdd(
-            residual, -outer(activity[ll], shapes[ll]), boxes[ll])
+    residual = data.copy()
+# Initialize background as 30% percentile
+    if adaptBias:
+        b_t = ones(len(residual))
+        b_s = percentile(residual, 30, 0).ravel()
+        residual -= outer(b_t, b_s).reshape(dims)
+# Initialize activity, iteratively remove background
+    for _ in range(5):
+        # (Re)calculate activity based on data-background and Gaussian shapes
+        for ll in range(L):
+            X = RegionCut(residual, boxes[ll])
+            activity[ll] = dot(X, shapes[ll]) / dot(shapes[ll], shapes[ll])
+            if NonNegative:
+                activity[ll][activity[ll] < 0] = 0
+    # (Re)calculate background based on data-neurons using nonnegative greedy PCA
+        residual = data.copy()
+        for ll in range(L):
+            residual = RegionAdd(residual, -outer(activity[ll], shapes[ll]), boxes[ll])
+        if not adaptBias:
+            break
+        residual.shape = (dims[0], -1)
+        b_s = dot(residual.T, b_t) / dot(b_t, b_t)
+        b_s[b_s < 0] = 0
+        b_t = dot(residual, b_s) / dot(b_s, b_s)
+        b_t[b_t < 0] = 0
+        residual -= outer(b_t, b_s)
+        residual.shape = dims
 
 # Main Loop
     for kk in range(iters):
@@ -117,24 +133,49 @@ def LocalNMF(data, centers, activity, sig, NonNegative=False, tol=1e-6, iters=10
             X = RegionCut(residual, boxes[ll])
 
             # NonNegative greedy PCA
-            greedy_pca_iterations = 5
-            for ii in range(greedy_pca_iterations):
-                temp = dot(X, shapes[ll]) / sum(shapes[ll] ** 2)
+            for ii in range(5):
+                activity[ll] = nan_to_num(dot(X, shapes[ll]) / dot(shapes[ll], shapes[ll]))
                 if NonNegative:
-                    temp[temp < 0] = 0
-                activity[ll] = temp
-
-                temp = dot(X.T, activity[ll]) / sum(activity[ll] ** 2)
+                    activity[ll][activity[ll] < 0] = 0
+                shapes[ll] = nan_to_num(dot(X.T, activity[ll]) / dot(activity[ll], activity[ll]))
                 if NonNegative:
-                    temp[temp < 0] = 0
-                shapes[ll] = temp
+                    shapes[ll][shapes[ll] < 0] = 0
 
             # Subtract region
-            residual = RegionAdd(
-                residual, -outer(activity[ll], shapes[ll]), boxes[ll])
+            residual = RegionAdd(residual, -outer(activity[ll], shapes[ll]), boxes[ll])
+
+        # Recalculate background
+        if adaptBias:
+            residual = data.copy()
+            for ll in range(L):
+                residual = RegionAdd(residual, -outer(activity[ll], shapes[ll]), boxes[ll])
+            residual.shape = (dims[0], -1)
+            for _ in range(5):
+                b_s = nan_to_num(dot(residual.T, b_t) / dot(b_t, b_t))
+                b_s[b_s < 0] = 0
+                b_t = nan_to_num(dot(residual, b_s) / dot(b_s, b_s))
+                b_t[b_t < 0] = 0
+            residual -= outer(b_t, b_s)
+            residual.shape = dims
+        # Recenter
+        # if kk % 30 == 20:
+        #     for ll in range(L):
+        #         shp = shapes[ll].reshape(np.ravel(np.diff(boxes[ll])))
+        #         com = boxes[ll][:, 0] + round(center_of_mass(shp))
+        #         newbox = GetBox(com, R, dims[1:])
+        #         if any(newbox != boxes[ll]):
+        #             newshape = zeros(np.ravel(np.diff(newbox)))
+        #             lower = vstack([newbox[:, 0], boxes[ll][:, 0]]).max(0)
+        #             upper = vstack([newbox[:, 1], boxes[ll][:, 1]]).min(0)
+        #             newshape[lower[0] - newbox[0, 0]:upper[0] - newbox[0, 0],
+        #                      lower[1] - newbox[1, 0]:upper[1] - newbox[1, 0]] = \
+        #                 shp[lower[0] - boxes[ll][0, 0]:upper[0] - boxes[ll][0, 0],
+        #                     lower[1] - boxes[ll][1, 0]:upper[1] - boxes[ll][1, 0]]
+        #             shapes[ll] = newshape.reshape(-1)
+        #             boxes[ll] = newbox
 
         # Measure MSE
-        MSE = sum(residual ** 2) 
+        MSE = dot(residual.ravel(), residual.ravel())
         if verbose:
             print('{0:1d}: MSE = {1:.3f}'.format(kk, MSE))
         if kk > 0 and abs(1 - MSE / MSE_array[-1]) < tol:
@@ -142,11 +183,13 @@ def LocalNMF(data, centers, activity, sig, NonNegative=False, tol=1e-6, iters=10
         if kk == (iters - 1):
             print('Maximum iteration limit reached')
         MSE_array.append(MSE)
+    if adaptBias:
+        return MSE_array, shapes, activity, boxes, outer(b_t, b_s).reshape(dims)
+    else:
+        return MSE_array, shapes, activity, boxes
 
 
-    return MSE_array, shapes, activity, boxes
-
-
+# example
 import numpy as np
 
 T = 50

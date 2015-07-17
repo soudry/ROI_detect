@@ -1,9 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Fri May  8 11:15:11 2015
-
-@author: Daniel
-"""
 # Example Script
 from __future__ import division
 
@@ -16,7 +10,7 @@ from scipy.ndimage.filters import gaussian_filter
 from BlockGroupLasso import gaussian_group_lasso, GetCenters, GetROI, GetActivity
 from BlockLocalNMF import LocalNMF, RegionAdd
 
-data_source = 3
+data_source = 1
 plt.close('all')
 
 # Fetch Data
@@ -56,48 +50,42 @@ elif data_source == 3:   # Use experimental 3D data
 
 
 # Run source detection algorithms
-
-#    TargetRange=[]
-x = gaussian_group_lasso(
-    data, sig, lam, NonNegative=NonNegative, TargetAreaRatio=TargetRange, verbose=True)
-#    pic = std(x, 0)
-#    z = std(data, 0)
-# I think Misha told me once 90% percentile is more robust then max, and
-# more sentsitive the std
-pic_x = percentile(x, 90, axis=0)
-pic_data = percentile(data, 90, axis=0)
+x = gaussian_group_lasso(data, sig, lam, NonNegative=NonNegative,
+                         TargetAreaRatio=TargetRange, verbose=True, adaptBias=True)
+pic_x = percentile(x, 95, axis=0)
+pic_data = percentile(data, 95, axis=0)
 # centers extracted from fista output using RegionalMax
 cent = GetCenters(pic_x)
 # ROI around each center, using watersheding on non-zero regions
 ROI = GetROI(pic_x,  (array(cent)[:-1]).T)
 # temporal traces of activity for each neuron, averaged over each ROI
 activity = GetActivity(x, ROI)
-#    residual=array(data.transpose(list(range(1, len(cent))) + [0]))`
-residual = array(data)
-MSE_array, shapes, activity, boxes = LocalNMF(
-    residual, (array(cent)[:-1]).T, activity, sig, NonNegative=NonNegative, verbose=True)
+
+MSE_array, shapes, activity, boxes, background = LocalNMF(
+    data, (array(cent)[:-1]).T, activity, sig,
+    NonNegative=NonNegative, verbose=True, adaptBias=True)
 
 L = len(shapes)  # number of detected neurons
-denoised_data = 0 * array(residual)
+denoised_data = 0 * data
 for ll in range(L):  # add all detected neurons
     denoised_data = RegionAdd(
         denoised_data, outer(activity[ll], shapes[ll],), boxes[ll])
-pic_denoised = percentile(denoised_data, 90, axis=0)
-
+pic_denoised = percentile(denoised_data, 95, axis=0)
+residual = data - denoised_data - background
 
 # Plot Results
+plt.figure(figsize=(12, 4. * data.shape[1] / data.shape[2]))
 ax = plt.subplot(131)
-ax.scatter(cent[1], cent[0], s=4 * sig[1],  marker='o', c='white')
+ax.scatter(cent[1], cent[0], s=7 * sig[1],  marker='o', c='white')
 plt.hold(True)
-#    ax.scatter(peaks[1],peaks[0],s=2*sig[1],marker='o',c='white')
 ax.set_title('Data + centers')
 ax.imshow(pic_data if data_source != 3 else pic_data.max(-1))
 ax2 = plt.subplot(132)
-ax2.scatter(cent[1], cent[0], s=4 * sig[1],  marker='o', c='white')
+ax2.scatter(cent[1], cent[0], s=7 * sig[1],  marker='o', c='white')
 ax2.imshow(pic_x if data_source != 3 else pic_x.max(-1))
 ax2.set_title('Inferred x')
 ax3 = plt.subplot(133)
-ax3.scatter(cent[1], cent[0], s=4 * sig[1],  marker='o', c='white')
+ax3.scatter(cent[1], cent[0], s=7 * sig[1],  marker='o', c='white')
 ax3.imshow(pic_denoised if data_source != 3 else pic_denoised.max(-1))
 ax3.set_title('Denoised data')
 
@@ -107,35 +95,32 @@ plt.plot(MSE_array)
 
 # Video Results
 dt = 1e-2
-fig = plt.figure()
-ax = fig.add_subplot(111)
+fig = plt.figure(figsize=(12, 4. * data.shape[1] / data.shape[2]))
 mi = min(data)
 ma = max(data)
 for ii in range(data.shape[0]):
     sleep(dt)
     ax = plt.subplot(131)
-    ax.scatter(cent[1], cent[0], s=4 * sig[1], marker='o', c='white')
+    ax.scatter(cent[1], cent[0], s=7 * sig[1], marker='o', c='white')
     plt.hold(True)
-#        ax.scatter(peaks[1],peaks[0],s=3*sig[1],marker='x',c='black')
-#        plt.hold(True)
-    ax.imshow(data[ii] if data_source != 3 else data[ii].max(-1),
-              vmin=mi, vmax=ma, aspect='auto')
+    ax.imshow(data[ii] if data_source != 3 else
+              data[ii].max(-1), vmin=mi, vmax=ma)
     ax.set_title('Data + centers')
     plt.draw()
     plt.hold(False)
     ax2 = plt.subplot(132)
-    ax2.scatter(cent[1], cent[0], s=4 * sig[1], marker='o', c='white')
+    ax2.scatter(cent[1], cent[0], s=7 * sig[1], marker='o', c='white')
     plt.hold(True)
-    ax2.imshow(residual[ii] if data_source != 3 else residual[
-               ii].max(-1), vmin=mi, vmax=ma, aspect='auto')
+    ax2.imshow(residual[ii] if data_source != 3 else
+               residual[ii].max(-1), vmin=mi, vmax=ma)
     ax2.set_title('Residual')
     plt.draw()
     plt.hold(False)
     ax3 = plt.subplot(133)
-    ax3.scatter(cent[1], cent[0], s=4 * sig[1], marker='o', c='white')
+    ax3.scatter(cent[1], cent[0], s=7 * sig[1], marker='o', c='white')
     plt.hold(True)
-    ax3.imshow(denoised_data[ii] if data_source != 3 else denoised_data[
-               ii].max(-1), vmin=mi, vmax=ma, aspect='auto')
+    ax3.imshow(denoised_data[ii] if data_source != 3 else
+               denoised_data[ii].max(-1), vmin=mi, vmax=ma)
     ax3.set_title('Denoised')
     plt.draw()
     plt.hold(False)
