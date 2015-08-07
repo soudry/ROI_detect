@@ -1,16 +1,17 @@
 # Example Script
 from __future__ import division
 
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 from numpy.random import randn, randint
 from numpy import zeros, transpose, min, max, array, prod, percentile, outer
-from time import sleep
 from scipy.io import loadmat
-import matplotlib.pyplot as plt
 from scipy.ndimage.filters import gaussian_filter
+from sys import argv
 from BlockGroupLasso import gaussian_group_lasso, GetCenters, GetROI, GetActivity
 from BlockLocalNMF import LocalNMF, RegionAdd
 
-data_source = 1
+data_source = 1 if len(argv) == 1 else int(argv[1])
 plt.close('all')
 
 # Fetch Data
@@ -88,39 +89,36 @@ ax3 = plt.subplot(133)
 ax3.scatter(cent[1], cent[0], s=7 * sig[1],  marker='o', c='white')
 ax3.imshow(pic_denoised if data_source != 3 else pic_denoised.max(-1))
 ax3.set_title('Denoised data')
+plt.show()
 
 fig = plt.figure()
 plt.plot(MSE_array)
-
+plt.xlabel('Iteration')
+plt.ylabel('MSE')
+plt.show()
 
 # Video Results
-dt = 1e-2
 fig = plt.figure(figsize=(12, 4. * data.shape[1] / data.shape[2]))
 mi = min(data)
 ma = max(data)
-for ii in range(data.shape[0]):
-    sleep(dt)
-    ax = plt.subplot(131)
-    ax.scatter(cent[1], cent[0], s=7 * sig[1], marker='o', c='white')
-    plt.hold(True)
-    ax.imshow(data[ii] if data_source != 3 else
-              data[ii].max(-1), vmin=mi, vmax=ma)
-    ax.set_title('Data + centers')
-    plt.draw()
-    plt.hold(False)
-    ax2 = plt.subplot(132)
-    ax2.scatter(cent[1], cent[0], s=7 * sig[1], marker='o', c='white')
-    plt.hold(True)
-    ax2.imshow(residual[ii] if data_source != 3 else
-               residual[ii].max(-1), vmin=mi, vmax=ma)
-    ax2.set_title('Residual')
-    plt.draw()
-    plt.hold(False)
-    ax3 = plt.subplot(133)
-    ax3.scatter(cent[1], cent[0], s=7 * sig[1], marker='o', c='white')
-    plt.hold(True)
-    ax3.imshow(denoised_data[ii] if data_source != 3 else
-               denoised_data[ii].max(-1), vmin=mi, vmax=ma)
-    ax3.set_title('Denoised')
-    plt.draw()
-    plt.hold(False)
+ii = 0
+ax = plt.subplot(131)
+ax.scatter(cent[1], cent[0], s=7 * sig[1], marker='o', c='white')
+im = ax.imshow(data[ii] if data_source != 3 else data[ii].max(-1), vmin=mi, vmax=ma)
+ax.set_title('Data + centers')
+ax2 = plt.subplot(132)
+ax2.scatter(cent[1], cent[0], s=7 * sig[1], marker='o', c='white')
+im2 = ax2.imshow(residual[ii] if data_source != 3 else residual[ii].max(-1), vmin=mi, vmax=ma)
+ax2.set_title('Residual')
+ax3 = plt.subplot(133)
+ax3.scatter(cent[1], cent[0], s=7 * sig[1], marker='o', c='white')
+im3 = ax3.imshow(denoised_data[ii] if data_source !=
+                 3 else denoised_data[ii].max(-1), vmin=mi, vmax=ma)
+ax3.set_title('Denoised')
+def update(ii):
+    im.set_data(data[ii] if data_source != 3 else data[ii].max(-1))
+    im2.set_data(residual[ii] if data_source != 3 else residual[ii].max(-1))
+    im3.set_data(denoised_data[ii] if data_source != 3 else denoised_data[ii].max(-1))
+ani = animation.FuncAnimation(fig, update, frames=len(data), blit=False, interval=30,
+                              repeat=False)
+plt.show()
