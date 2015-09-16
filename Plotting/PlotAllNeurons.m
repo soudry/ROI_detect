@@ -51,7 +51,11 @@ for ll=1:L
 
 %         set(gca,'Xlim',[0 length(v_t{ll})],'Xtick',[],'Ytick',[],'Xticklabel',[],'Yticklabel',[])
         set(gca,'Xlim')
-        title(['neuron #' num2str(ll)])  
+        if ll<L
+            title(['neuron #' num2str(ll)])  
+        else
+            title([' Background'])  
+        end
         
 end
 
@@ -102,9 +106,17 @@ for zz=1:Z
 %         set(gca,'Xtick',[],'Ytick',[],'Xticklabel',[],'Yticklabel',[])
         
         if Z>1
-        title(['neuron #' num2str(ll) '_z=' num2str(zz)])
-        else
-            title(['neuron #' num2str(ll)])  
+            if ll<L
+                title(['neuron #' num2str(ll) '_z=' num2str(zz)])
+            else
+                title([' Background_z=' num2str(zz)])
+            end
+        else            
+            if ll<L
+                title(['neuron #' num2str(ll)])  
+            else
+                title([' Background'])  
+            end            
         end
     end
 

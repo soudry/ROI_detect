@@ -17,5 +17,5 @@ for dd=1:dims
     end
     temp=squeeze(temp);
 %     R(dd)=round(sum(temp)*2/3+1.5*sigma_vector(dd));
-    R(dd)=round(sum(temp)*2+2*sigma_vector(dd));
+    R(dd)=round(sum(temp)/2+1.5*sigma_vector(dd));
 end

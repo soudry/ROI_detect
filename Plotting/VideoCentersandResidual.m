@@ -49,7 +49,7 @@ end
 scale=1; %zoom intensity scale
 ma=max(data(:));
 mi=min(data(:));%min(abs(Neuron_spatial(:)))*min(abs(mean(activity,2)));
-ma2=max(bias(:));
+ma2=max(bias(:))+eps;
 mi2=min(bias(:));
 ma3=max(data(:));
 mi3=min(data(:));
@@ -77,17 +77,7 @@ ma4=max(data(:)-bias(:)-estimate(:));
         open(writerObj);
     end
     
-            subplot(a,b,c*b+[1:c, (1:c)+b, (1:c)+2*b])
-            imagesc(bias(:,:,1),[mi2 ma2]);
-            colorbar
-            title('Background','fontsize',fontsize);
-%             set(gca,'xtick',[],'ytick',[]);            
-             hold all; 
-%               scatter(cent(2,:),cent(1,:),max(activity_mat(:,:),[],1),'wo');
-%             hold all; scatter(cent(2,:),cent(1,:),max(activity_mat(:,:),[],1),'kx');   
-            k=1:length(cent(2,:)); text(cent(2,:),cent(1,:),num2str(k'), 'color','w')
-            xlim([edge_distance dims(2)-edge_distance]);
-            ylim([edge_distance dims(1)-edge_distance]);
+
     
     
     for tt=1:dims(end)
@@ -102,6 +92,18 @@ ma4=max(data(:)-bias(:)-estimate(:));
 %             scatter(cent(2,:),cent(1,:),activity_mat(tt,:),'wo');
 %             hold all; scatter(cent(2,:),cent(1,:),activity_mat(tt,:),'kx');%        
             k=1:length(cent(2,:)); text(cent(2,:),cent(1,:),num2str(k'),'color','w')
+            xlim([edge_distance dims(2)-edge_distance]);
+            ylim([edge_distance dims(1)-edge_distance]);
+            
+            subplot(a,b,c*b+[1:c, (1:c)+b, (1:c)+2*b])
+            imagesc(bias(:,:,tt),[mi2 ma2]);
+            colorbar
+            title('Background','fontsize',fontsize);
+%             set(gca,'xtick',[],'ytick',[]);            
+             hold all; 
+%               scatter(cent(2,:),cent(1,:),max(activity_mat(:,:),[],1),'wo');
+%             hold all; scatter(cent(2,:),cent(1,:),max(activity_mat(:,:),[],1),'kx');   
+            k=1:length(cent(2,:)); text(cent(2,:),cent(1,:),num2str(k'), 'color','w')
             xlim([edge_distance dims(2)-edge_distance]);
             ylim([edge_distance dims(1)-edge_distance]);
             
