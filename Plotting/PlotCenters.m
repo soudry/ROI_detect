@@ -11,36 +11,47 @@ else
     num_figs=1;
 end
 
-
+    a=floor(sqrt(num_figs)); b=ceil(sqrt(num_figs));
 show_centers=~isempty(cent); %
+ck=1:length(cent(:,2));
+fh=figure;
+colormap('paruly')
 
 for zz=1:num_figs
-    fh=figure(zz);
+%     fh=figure(zz);
     set(fh,'units','normalized','outerposition',[0 0 1 1]);
+%     title('top 5% quantile image')
     
     if is3D
         Y=squeeze(data(:,:,zz,:));
     else
         Y=data;
     end
-    
-    subplot(2,2,1)
-    imagesc(mean(abs(Y),3))
-    title('mean image')
-    subplot(2,2,2)
-    imagesc(max(abs(Y),[],3))
-    title('max image')
-    subplot(2,2,3)
-    imagesc(std(abs(Y),[],3))
-    title('std image')    
-    subplot(2,2,4)
-    imagesc(localcorr( data ));
-    title('correlation image')
+%     
+%     subplot(2,2,1)
+%     imagesc(mean(abs(Y),3))
+%     title('mean image')
+%     subplot(2,2,2)
+%     imagesc(max(abs(Y),[],3))
+%     title('max image')
+%     subplot(2,2,3)
+%     imagesc(std(abs(Y),[],3))
+%     title('std image')    
+%     subplot(2,2,4)
+%     imagesc(localcorr( Y ));
+%     title('correlation image')
+%     
+    subplot(a,b,zz)
+    imagesc(quantile( Y,0.95 ,3));
+    title(['z=' num2str(zz)])
+end
 
+for zz=1:num_figs
     if show_centers
-        for ii=1:4
-            subplot(2,2,ii)
+%         for ii=1:4
+%             subplot(2,2,ii)
             if is3D
+                subplot(a,b,zz)
                 ind=find(cent(:,3)==zz);
 %                 if zz==num_fig
 %                     ind_down=find(cent(:,3)==zz-1);
@@ -54,6 +65,7 @@ for zz=1:num_figs
 %                 end
                 hold all; scatter(cent(ind,2),cent(ind,1),20,'ow');    
                 hold all; scatter(cent(ind,2),cent(ind,1),20,'xk');
+                text(1.01*cent(ind,2),1.01*cent(ind,1),num2str(ck(ind)'),'color','r')
                 
                 for kk=1:length(ind)
                     ll=ind(kk);
@@ -63,17 +75,19 @@ for zz=1:num_figs
                     h=2*R_list(ll,1);
                     rectangle('Position',[x y w h]);
                     if zz<num_figs
-                    figure(zz+1)
-                    subplot(2,2,ii)
+%                     figure(zz+1)
+                    subplot(a,b,zz+1)
+%                     subplot(2,2,ii)
                     rectangle('Position',[x y w h],'linestyle','--');
                     end
                     if zz>1
-                    figure(zz-1)
-                    subplot(2,2,ii)
+%                     figure(zz-1)
+                    subplot(a,b,zz-1)
+%                     subplot(2,2,ii)
                     rectangle('Position',[x y w h],'linestyle','--');
                     end
-                    figure(zz)
-                    subplot(2,2,ii)
+                    subplot(a,b,zz)
+%                     subplot(2,2,ii)
                 end
                 
 %                 for kk=1:length(ind_up)
@@ -90,6 +104,7 @@ for zz=1:num_figs
             else
                 hold all; scatter(cent(:,2),cent(:,1),20,'ow');    
                 hold all; scatter(cent(:,2),cent(:,1),20,'xk');
+                ck=1:L; text(cent(:,2),cent(:,1),num2str(ck'),'color','w')
                 for ll=1:L
                     x=cent(ll,2)-R_list(ll,2);
                     y=cent(ll,1)-R_list(ll,1);
@@ -98,7 +113,7 @@ for zz=1:num_figs
                     rectangle('Position',[x y w h]);
                 end
             end
-        end
+%         end
     end
 end
 

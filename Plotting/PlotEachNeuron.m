@@ -17,7 +17,7 @@ S_dims(end)=1;
 % set(h1,'units','normalized','outerposition',[0 0 1 1])
 
 % pic=localcorr( data );
-pic=mean( data ,3);
+pic=mean( data ,ndims(data));
 prev_key_pressed=[];
 scale=1;
 
@@ -33,7 +33,13 @@ for ll=1:L
     area=box_cell{ll};
     subplot(3,3,[4 5 6 7 8 9])
     
-    imagesc(pic)
+    if dims>3
+        box=box_cell{ll};
+        zz=round((area(3,1)+area(3,2))/2)
+        imagesc(pic(:,:,zz))
+    else
+        imagesc(pic)
+    end
     hold all
 %     if ll>1
 %         set(rh,'linewidth',1,'linestyle','--');
@@ -48,6 +54,9 @@ for ll=1:L
     
     subplot(3,3,1)        
     mat=RegionInsert(abs(v_s{ll}),area,S_dims);
+    if ndims(mat)==3
+        mat=mean(mat,3); %collapse 3D shape to 1D one
+    end
     imagesc(mat);
     ylim([area(1,1) area(1,2)]);
     xlim([area(2,1) area(2,2)]);
@@ -59,7 +68,11 @@ for ll=1:L
     key_pressed=[];
     hp=[];
     
-    data_box=data(area(1,1):area(1,2),area(2,1):area(2,2),:);
+    if ndims(mat)==2
+        data_box=data(area(1,1):area(1,2),area(2,1):area(2,2),:);
+    else
+        data_box=squeeze(data(area(1,1):area(1,2),area(2,1):area(2,2),zz,:));
+    end
     mi=min(data_box(:));
     ma_abs=max(data_box(:));    
     tt=0;

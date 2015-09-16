@@ -173,7 +173,8 @@ for kk=1:iterations
     sparsity_ratio(iterations_so_far)=sum(temp(:)>0)/prod(dims(1:(end-1)));    
     
     % find number of neurons
-    pic=std(x,[],length(dims));           
+%     pic=std(x,[],length(dims));        
+    pic=quantile(x,0.95,length(dims));  
     cent=GetCenters(pic); %find neuronal centers
     num_neurons=size(cent,1) %#ok
     
@@ -191,7 +192,7 @@ for kk=1:iterations
                 prev_lambda=lambda;                    
 
             if sparsity_ratio(iterations_so_far)>0.9
-                lambda=lambda/(1-eta);
+                lambda=lambda/(1-eta)
             elseif Neuron_number_range(1)>num_neurons %too few neurons
                 lambda=lambda*(1-eta) %#ok               
 
@@ -202,9 +203,8 @@ for kk=1:iterations
                     lambda=lambda/(1-eta) %#ok
                 end 
             else %find MSE    
-                
-                relative_error=(MSE_array(iterations_so_far)-MSE_bottom)/MSE_bottom %#ok
-                lambda=lambda*(1-0.1*eta*tanh(relative_error)) %#ok
+%                 relative_error=(MSE_array(iterations_so_far)-MSE_bottom)/MSE_bottom %#ok
+%                 lambda=lambda*(1-0.1*eta*tanh(relative_error)) %#ok
             end
                 if kk>2
                     if (lambda-prev_lambda)*(prev_lambda*prev_prev_lambda)<0 %if going around fixed point, decrease learning rate (but only if these fluctuations are related to lambda...)
@@ -248,7 +248,7 @@ for kk=1:iterations
             end
         end
     end
-    if save_results&&~save_each&&(kk>1)%do not delete starting point
+    if save_results&&save_each&&(kk>1)%do not delete starting point
         delete(name_prev);
     end  
     
