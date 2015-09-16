@@ -40,9 +40,9 @@ end
 %% Run Non-Negative Matrix factorization part
 [MSE_array,v_s,v_t,box_cell,neurons_removed]=RunNMFmethod(data,params,flags,neuron_stats,u,f);
 %% Find new "center of mass" centers according to NMF
-L=(length(v_s)-1);
+L=(length(v_s)-flags.adapt_bias);
 cent_new=zeros(L,ndims(data)-1);
-for ll=1:(length(v_s)-1)
+for ll=1:L
         box=box_cell{ll};
         size_v=box(:,2)-box(:,1)+1;
         cent_new(ll,:)=round(centerOfMass(reshape(v_s{ll},size_v'))+box(:,1)-1)';
@@ -53,7 +53,7 @@ end
 
 
     PlotCenters(data,cent_new);
-    PlotAllNeurons(v_s,v_t,box_cell,data_name)
+    PlotAllNeurons(v_s,v_t,box_cell,data_name,flags.adapt_bias)
 %     PlotEachNeuron(data,v_s,v_t,box_cell)
     [estimate,bias]=GetDenoisedData(size(data),v_s,v_t,box_cell,flags.adapt_bias);
 %     VideoResidual(data,estimate,[],bias)

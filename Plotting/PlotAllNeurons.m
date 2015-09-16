@@ -1,4 +1,4 @@
-function [ha1, ha2]=PlotAllNeurons(v_s_lp,v_t,box_cell,file_name)
+function [ha1, ha2]=PlotAllNeurons(v_s_lp,v_t,box_cell,file_name,bias_exist)
 
 L=length(v_t);
 %% determinse size and ordering of subplots
@@ -51,11 +51,13 @@ for ll=1:L
 
 %         set(gca,'Xlim',[0 length(v_t{ll})],'Xtick',[],'Ytick',[],'Xticklabel',[],'Yticklabel',[])
         set(gca,'Xlim')
-        if ll<L
-            title(['neuron #' num2str(ll)])  
-        else
+       
+            
+         if and(ll==L,bias_exist)
             title([' Background'])  
-        end
+         else
+             title(['neuron #' num2str(ll)])  
+         end
         
 end
 
@@ -106,17 +108,17 @@ for zz=1:Z
 %         set(gca,'Xtick',[],'Ytick',[],'Xticklabel',[],'Yticklabel',[])
         
         if Z>1
-            if ll<L
-                title(['neuron #' num2str(ll) '_z=' num2str(zz)])
-            else
+            if and(ll==L,bias_exist)
                 title([' Background_z=' num2str(zz)])
+            else
+                title(['neuron #' num2str(ll) '_z=' num2str(zz)])                
             end
         else            
-            if ll<L
-                title(['neuron #' num2str(ll)])  
+            if and(ll==L,bias_exist)
+                title(' Background')
             else
-                title([' Background'])  
-            end            
+                title(['neuron #' num2str(ll)])                
+            end          
         end
     end
 
