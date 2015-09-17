@@ -18,13 +18,6 @@ elseif option==2
 elseif option==3
     data_name='Exp3D'; % Experimental 3D data  (only group lasso part is relevant here, due to low temporal resolution)
     load('data_exp3D.mat') %load data - an XxYxZxT movie
-elseif option==4
-    data_name='Exp3D_2'; % Experimental 3D data  (only group lasso part is relevant here, due to low temporal resolution)
-    load('C:\Users\Daniel\Copy\Columbia\Research\Data\Sara_4SEP2015\processed_data.mat') %load data - an XxYxZxT movie
-    data=double(data(1:150,:,:,:));
-elseif option==5
-    data_name='Exp2D_2'; % Experimental 3D data  (only group lasso part is relevant here, due to low temporal resolution)
-    load('C:\Users\Daniel\Copy\Columbia\Research\Data\Sopie_24.8.2015\processed_data.mat') %load data - an XxYxZxT movie
 end
 
 [specs,params,flags]=GetDefaultInput(data_name); % get algorithm parameters
