@@ -49,9 +49,15 @@ for ll=1:L
 end
 
     %% Plot NMF 
-    figure(1002); plot(MSE_array);   ylabel('MSE');   xlabel('iterations');
+    figure(1002); 
+    
+%     plot(MSE_array);   ylabel('MSE');   xlabel('iterations');
+%     hold all
+%     MSE_LowerBound = GetMSE_PSD(data);
+%     line([0 length(MSE_array)],MSE_LowerBound*[1 1],'color', 'k');
 
 
+ 
     PlotCenters(data,cent_new);
     PlotAllNeurons(v_s,v_t,box_cell,data_name,flags.adapt_bias)
 %     PlotEachNeuron(data,v_s,v_t,box_cell)
