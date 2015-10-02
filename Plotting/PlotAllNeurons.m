@@ -1,7 +1,6 @@
-function [ha1 ha2]=PlotAllNeurons(v_s_lp,v_t,box_cell,file_name)
+function [ha1, ha2]=PlotAllNeurons(v_s_lp,v_t,box_cell,file_name,bias_exist)
 
 L=length(v_t);
-
 %% determinse size and ordering of subplots
 max_plots_in_figure=35;
 max_plots_in_row=5;
@@ -18,53 +17,123 @@ else
     a=ceil(max_plots_in_figure/b);    
 end
 %%
-prev_num_figure=-1;
-    for ll=1:L
-        num_figure=floor((ll-0.5)/max_plots_in_figure);
-        subplot_ind=mod(ll-1,max_plots_in_figure)+1;
-        
-        h1=figure(1+num_figure*2)
-        set(h1,'units','normalized','outerposition',[0 0 1 1])
-%         title('neurons')
-        if prev_num_figure~=num_figure
-            h1=figure(1+num_figure*2)
-            ha1 = tight_subplot(a,b,[.05 .01],[.01 .05],[.01 .01])
-            h2=figure(2+num_figure*2)
-            prev_num_figure=num_figure;
-            ha2 = tight_subplot(a,b,[.05 .01],[.01 .05],[.01 .01]) 
-            h1=figure(1+num_figure*2)
-        end
-        axes(ha1(subplot_ind));
-%         subplot(a,b,subplot_ind)        
 
-        mat = Vector2Mat(v_s_lp{ll},box_cell{ll});
-%         [~, cc_num]=bwlabeln(mat>0.5*max(mat(:)));
-%        if cc_num>2
-%            continue
-%        end
-        
-        imagesc(mat);
-        set(gca,'Xtick',[],'Ytick',[],'Xticklabel',[],'Yticklabel',[])
-%         ylim([area(1,1) area(1,2)]);
-%         xlim([area(2,1) area(2,2)]);    
-        h2=figure(2+num_figure*2)
+if ~isempty(file_name)
+    folder = GetHomeFolder;
+    figure_name=[ file_name '.png'];
+end
+
+
+if size(box_cell{1},1)>2
+    Z=box_cell{1}(3,2);
+else
+    Z=1
+end
+
+    
+fig_count=0;
+for ll=1:L
+        if  ~mod(ll-1,max_plots_in_figure)
+            if and(ll~=1,~isempty(file_name))
+                figure(h2)
+                Export2Folder([ 'activity' num2str(fig_count) '_' figure_name],folder);     
+            end
+            h2=figure(201+fig_count);
+            ha2 = tight_subplot(a,b,[.05 .03],[.03 .05],[.03 .01]) ;
+            fig_count=fig_count+1;
+        end
+        subplot_ind=mod(ll-1,max_plots_in_figure)+1;
         set(h2,'units','normalized','outerposition',[0 0 1 1])
-%         title('activity')  
+    
         axes(ha2(subplot_ind));
 %         subplot(a,b,subplot_ind)
         plot(v_t{ll}*sum(v_s_lp{ll}));
-        set(gca,'Xlim',[0 length(v_t{ll})],'Xtick',[],'Ytick',[],'Xticklabel',[],'Yticklabel',[])
+
+%         set(gca,'Xlim',[0 length(v_t{ll})],'Xtick',[],'Ytick',[],'Xticklabel',[],'Yticklabel',[])
+        set(gca,'Xlim')
+       
+            
+         if and(ll==L,bias_exist)
+            title([' Background'])  
+         else
+             title(['neuron #' num2str(ll)])  
+         end
+        
+end
+
+if ~isempty(file_name)
+    figure(h2)
+    Export2Folder([ 'activity' num2str(fig_count) '_' figure_name],folder);     
+end
+
+
+for zz=1:Z
+    fig_count=0;
+    for ll=1:L
+        if  ~mod(ll-1,max_plots_in_figure)
+            if  and(ll~=1,~isempty(file_name))
+                figure(h1)
+                if Z>1
+                    Export2Folder([ 'shapes' num2str(fig_count)  '_z=' num2str(zz) '_' figure_name],folder);
+                else
+                    Export2Folder([ 'shapes' num2str(fig_count)  '_' figure_name],folder);
+                end
+            end
+            h1=figure(110+fig_count+zz*100)
+            set(h1,'units','normalized','outerposition',[0 0 1 1])
+            ha1 =  tight_subplot(a,b,[.05 .03],[.03 .05],[.03 .01]) ;
+            fig_count=fig_count+1;
+         end
+    
+        
+        subplot_ind=mod(ll-1,max_plots_in_figure)+1;
+
+        axes(ha1(subplot_ind));
+ 
+
+        mat = Vector2Mat(v_s_lp{ll},box_cell{ll});
+
+    
+        mi=0; ma=max(mat(:));
+        current_box=box_cell{ll}
+        if Z>1
+        if and(zz>=current_box(3,1),zz<=current_box(3,2))
+            imagesc(squeeze(mat(:,:,-current_box(3,1)+1+zz)),[mi ma]);
+        else
+            imagesc(0*squeeze(mat(:,:,1)),[mi ma]);
+        end
+        else
+            imagesc(mat,[mi ma]);
+        end
+%         set(gca,'Xtick',[],'Ytick',[],'Xticklabel',[],'Yticklabel',[])
+        
+        if Z>1
+            if and(ll==L,bias_exist)
+                title([' Background_z=' num2str(zz)])
+            else
+                title(['neuron #' num2str(ll) '_z=' num2str(zz)])                
+            end
+        else            
+            if and(ll==L,bias_exist)
+                title(' Background')
+            else
+                title(['neuron #' num2str(ll)])                
+            end          
+        end
     end
 
 if ~isempty(file_name)
-    homefolder = GetHomeFolder;
-    folder=fullfile( homefolder, 'Data', 'Neurons');
-    figure_name=[ file_name '.png'];
-    figure(1)
-    Export2Folder([ 'shapes_' figure_name],folder);
-    figure(2)
-    Export2Folder([ 'activity_' figure_name],folder);        
+    figure(h1)
+    if Z>1
+        Export2Folder([ 'shapes'  num2str(fig_count) '_z=' num2str(zz) '_' figure_name],folder);
+    else
+        Export2Folder([ 'shapes' num2str(fig_count)  '_' figure_name],folder);
+    end
 end
+
+
+    
+    
 
 end
 

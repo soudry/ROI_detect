@@ -32,7 +32,7 @@ iterations=10; % number of Fista iterations
 prev_iteration=0; % if not zero, load previous run with same sigma and lambda. 
 lambda=0.002;  % regularization constant (only initial guess if adapt_lambda=1)
 eta=0.5; %lambda learning rate when we adapt lambda- is there a better way to set it?
-sigma=6; %hsize=sigma*10;       
+sigma=5; %hsize=sigma*10;       
 sigma_vector=sigma*[1 1]; %only useful for 3D data
 Neuron_number_range=[4 4]; %possible range of neuron numbers
 
@@ -65,6 +65,26 @@ switch data_name
         adapt_lambda=1; % do SGD on lambda so MSE-> MSE_bottom
         sigma=2; %hsize=sigma*10;       
         sigma_vector=sigma*[1 1 1]; %only useful for 3D data
+    case 'Exp3D_2'       
+        lambda=2024;  % regularization constant (only initial guess if adapt_lambda=1)
+        adapt_bias=1; 
+        non_negative=1; 
+        save_results=1; % save_results?
+        adapt_lambda=1; % do SGD on lambda so MSE-> MSE_bottom
+        sigma=4;
+        sigma_vector=[sigma sigma 1]; %only useful for 3D data
+        Neuron_number_range=[12 24]; %possible range of neuron numbers        adapt_lambda=1; % do SGD on lambda so MSE-> MSE_bottom
+        iterations=40; % number of Fista iterations        
+    case 'Exp2D_2'       
+        lambda=2;  % regularization constant (only initial guess if adapt_lambda=1)
+        adapt_bias=1; 
+        non_negative=1; 
+        save_results=1; % save_results?
+        adapt_lambda=1; % do SGD on lambda so MSE-> MSE_bottom
+        sigma=4;
+        sigma_vector=[sigma sigma]; %only useful for 3D data
+        Neuron_number_range=[50 70]; %possible range of neuron numbers        adapt_lambda=1; % do SGD on lambda so MSE-> MSE_bottom
+        iterations=40; % number of Fista iterations
     otherwise
         error('unknwon dataset');
 end
