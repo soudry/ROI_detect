@@ -93,7 +93,7 @@ def LocalNMF(data, centers, sig, NonNegative=True,
     # Initialize Parameters
     dims = data.shape
     D = len(dims)
-    R = 4 * array(sig)  # size of bounding box is 4 times size of neuron
+    R = 3 * array(sig)  # size of bounding box is 3 times size of neuron
     L = len(centers)
     shapes = []
     mask = []
@@ -183,9 +183,10 @@ def LocalNMF(data, centers, sig, NonNegative=True,
 
 ### Initialize shapes, activity, and residual ###
     print 'init', time() - t
-    from skimage.transform import downscale_local_mean
-    dataSSS = asarray([downscale_local_mean(r, (ds, ds)) for r in data])
-    data0 = dataSSS.reshape((-1, mb) + dataSSS.shape[-2:]).mean(1)
+    # from skimage.transform import downscale_local_mean
+    data0 = data.reshape((-1, mb) + data.shape[-2:]).mean(1)
+    # data0 = asarray([downscale_local_mean(r, (ds, ds)) for r in data0])
+    data0 = data0.reshape(len(data0), dims[1] / ds, ds, dims[2] / ds, ds).mean(-1).mean(-2)
     dims0 = data0.shape
     activity = data0[:, map(int, centers[:, 0] / ds), map(int, centers[:, 1] / ds)].T
     activity = np.r_[activity, ones((1, dims0[0]))]
@@ -209,10 +210,8 @@ def LocalNMF(data, centers, sig, NonNegative=True,
         S[ll] = RegionAdd(
             zeros((1,) + dims0[1:]), shapes[ll].reshape(1, -1), boxes[ll]).ravel()
     if adaptBias:
-         # Initialize background as 30% percentile
-        b_s = percentile(data0, 30, 0)
-        S[-1] = b_s
-
+        # Initialize background as 20% percentile
+        S[-1] = percentile(data0, 20, 0)
 
 ### Get shape estimates on subset of data ###
     if iters0[0] > 0:
@@ -231,17 +230,17 @@ def LocalNMF(data, centers, sig, NonNegative=True,
 
     ### Back to full data ##
         activity = ones((L + adaptBias, dims[0])) * activity.mean(1).reshape(-1, 1)
-        for _ in range(1):
-            # replace data0 by residual for HALS using residual
-            res, activity, dt = HALS4activity(dataSSS.reshape(len(dataSSS), -1), S, activity)
-            tsub += dt
-
         S = repeat(repeat(S.reshape((-1,) + dims0[1:]), 2, 1), 2, 2).reshape(L + adaptBias, -1)
         for ll in range(L):
             boxes[ll] = GetBox(centers[ll], R, dims[1:])
             temp = zeros(dims[1:])
-            temp[map(lambda a: slice(*a), boxes[ll])]=1
+            temp[map(lambda a: slice(*a), boxes[ll])] = 1
             mask[ll] = np.where(temp.ravel())[0]
+
+        for _ in range(1):
+            # replace data0 by residual for HALS using residual
+            res, activity, dt = HALS4activity(data, S, activity)
+            tsub += dt
 
 
 #### Main Loop ####
@@ -278,39 +277,39 @@ def LocalNMF(data, centers, sig, NonNegative=True,
             print('Maximum iteration limit reached')
         MSE_array.append(MSE)
     if adaptBias:
-        return tls, shapes, activity, boxes  # , outer(b_t, b_s).reshape(dims)
+        return tls, S, activity, boxes  # , outer(b_t, b_s).reshape(dims)
     else:
-        return MSE_array, shapes, activity, boxes
+        return MSE_array, S, activity, boxes
 
 ########################################################
 
-# Fetch Data, take only 100x100 patch to not have to wait minutes
-sig = (4, 4)
-lam = 40
-data = np.asarray([np.load('../zebrafish/ROI_zebrafish/data/1/nparrays/TM0%04d_200-400_350-550_15.npy' % t)
-                   for t in range(3000)])[:, : 100, : 100]
-x = np.load('x.npy')[:, : 100, : 100]  # x is stored result from grouplasso
-pic_x = np.percentile(x, 95, 0)
-cent = GetCenters(pic_x)
+if __name__ == "__main__":
+    # Fetch Data, take only 100x100 patch to not have to wait minutes
+    sig = (4, 4)
+    lam = 40
+    data = np.asarray([np.load('../zebrafish/ROI_zebrafish/data/1/nparrays/TM0%04d_200-400_350-550_15.npy' % t)
+                       for t in range(3000)])[:, : 100, : 100]
+    x = np.load('x.npy')[:, : 100, : 100]  # x is stored result from grouplasso
+    pic_x = np.percentile(x, 95, 0)
+    cent = GetCenters(pic_x)
 
+    # iterls = np.outer([10, 20, 40, 60, 80], np.ones(2, dtype=int)) / 2
+    # iterls = [10, 20, 40, 60, 80]
+    iterls = [80]
+    MSE_array = [LocalNMF(data, (array(cent)[:-1]).T, sig, verbose=True, iters=20, iters0=[i], mbs=[30])[0]
+                 for i in iterls]
+    plt.figure()
+    for i, m in enumerate(MSE_array):
+        plt.plot(np.array(m)[:, 0], np.array(m)[:, 1] / data.size, label=iterls[i])
+    plt.legend(title='subset iterations')
+    plt.xlabel('Walltime')
+    plt.ylabel('MSE')
+    plt.show()
 
-# iterls = np.outer([10, 20, 40, 60, 80], np.ones(2, dtype=int)) / 2
-# iterls = [10, 20, 40, 60, 80]
-iterls = [80]
-MSE_array = [LocalNMF(data, (array(cent)[:-1]).T, sig, verbose=True, iters=20, iters0=[i], mbs=[30])[0]
-             for i in iterls]
-plt.figure()
-for i, m in enumerate(MSE_array):
-    plt.plot(np.array(m)[:, 0], np.array(m)[:, 1] / data.size, label=iterls[i])
-plt.legend(title='subset iterations')
-plt.xlabel('Walltime')
-plt.ylabel('MSE')
-plt.show()
-
-# tls, shapes, activity, boxes, background = LocalNMF(
-#     data, (array(cent)[:-1]).T, sig, verbose=True, iters=1, iters0=[60], mbs=[30])
-# for ll in range(len(shapes)):
-# figure()
-# imshow(shapes[ll].reshape(np.diff(boxes[ll], 1).ravel()))
-# figure()
-# imshow(shapes[-1].reshape(np.diff(boxes[-1], 1).ravel()))
+    # tls, shapes, activity, boxes, background = LocalNMF(
+    #     data, (array(cent)[:-1]).T, sig, verbose=True, iters=1, iters0=[60], mbs=[30])
+    # for ll in range(len(shapes)):
+    # figure()
+    # imshow(shapes[ll].reshape(np.diff(boxes[ll], 1).ravel()))
+    # figure()
+    # imshow(shapes[-1].reshape(np.diff(boxes[-1], 1).ravel()))

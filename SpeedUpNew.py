@@ -100,7 +100,7 @@ def LocalNMF(data, centers, sig, NonNegative=True,
     # Initialize Parameters
     dims = data.shape
     D = len(dims)
-    R = 4 * array(sig)  # size of bounding box is 4 times size of neuron
+    R = 3 * array(sig)  # size of bounding box is 4 times size of neuron
     L = len(centers)
     shapes = []
     mask = []
@@ -433,33 +433,34 @@ def LocalNMF(data, centers, sig, NonNegative=True,
 
 ########################################################
 
-# Fetch Data, take only 100x100 patch to not have to wait minutes
-sig = (4, 4)
-lam = 40
-data = np.asarray([np.load('../zebrafish/ROI_zebrafish/data/1/nparrays/TM0%04d_200-400_350-550_15.npy' % t)
-                   for t in range(3000)])  # [:, : 100, : 100]
-x = np.load('x.npy')  # [:, : 100, : 100]  # x is stored result from grouplasso
-pic_x = np.percentile(x, 95, 0)
-cent = GetCenters(pic_x)
+if __name__ == "__main__":
+    # Fetch Data, take only 100x100 patch to not have to wait minutes
+    sig = (4, 4)
+    lam = 40
+    data = np.asarray([np.load('../zebrafish/ROI_zebrafish/data/1/nparrays/TM0%04d_200-400_350-550_15.npy' % t)
+                       for t in range(3000)])  # [:, : 100, : 100]
+    x = np.load('x.npy')  # [:, : 100, : 100]  # x is stored result from grouplasso
+    pic_x = np.percentile(x, 95, 0)
+    cent = GetCenters(pic_x)
 
 
-# iterls = np.outer([10, 20, 40, 60, 80], np.ones(2, dtype=int)) / 2
-# iterls = [0, 10, 20, 40, 60, 80]
-iterls = [80]
-MSE_array = [LocalNMF(data, (array(cent)[:-1]).T, sig, verbose=True, iters=20, iters0=[i], mbs=[30])[0]
-             for i in iterls]
-plt.figure()
-for i, m in enumerate(MSE_array):
-    plt.plot(np.array(m)[:, 0], np.array(m)[:, 1] / data.size, label=iterls[i])
-plt.legend(title='subset iterations')
-plt.xlabel('Walltime')
-plt.ylabel('MSE')
-plt.show()
+    # iterls = np.outer([10, 20, 40, 60, 80], np.ones(2, dtype=int)) / 2
+    # iterls = [0, 10, 20, 40, 60, 80]
+    iterls = [80]
+    MSE_array = [LocalNMF(data, (array(cent)[:-1]).T, sig, verbose=True, iters=20, iters0=[i], mbs=[30])[0]
+                 for i in iterls]
+    plt.figure()
+    for i, m in enumerate(MSE_array):
+        plt.plot(np.array(m)[:, 0], np.array(m)[:, 1] / data.size, label=iterls[i])
+    plt.legend(title='subset iterations')
+    plt.xlabel('Walltime')
+    plt.ylabel('MSE')
+    plt.show()
 
-# tls, shapes, activity, boxes, background = LocalNMF(
-#     data, (array(cent)[:-1]).T, sig, verbose=True, iters=1, iters0=[60], mbs=[30])
-# for ll in range(len(shapes)):
-# figure()
-# imshow(shapes[ll].reshape(np.diff(boxes[ll], 1).ravel()))
-# figure()
-# imshow(shapes[-1].reshape(np.diff(boxes[-1], 1).ravel()))
+    # tls, shapes, activity, boxes, background = LocalNMF(
+    #     data, (array(cent)[:-1]).T, sig, verbose=True, iters=1, iters0=[60], mbs=[30])
+    # for ll in range(len(shapes)):
+    # figure()
+    # imshow(shapes[ll].reshape(np.diff(boxes[ll], 1).ravel()))
+    # figure()
+    # imshow(shapes[-1].reshape(np.diff(boxes[-1], 1).ravel()))

@@ -77,7 +77,7 @@ def LocalNMF(data, centers, sig, NonNegative=True,
     # Initialize Parameters
     dims = data.shape
     D = len(dims)
-    R = 4 * array(sig)  # size of bounding box is 4 times size of neuron
+    R = 3 * array(sig)  # size of bounding box is 4 times size of neuron
     L = len(centers)
     shapes = []
     boxes = zeros((L, D - 1, 2), dtype=int)
@@ -255,8 +255,8 @@ def LocalNMF(data, centers, sig, NonNegative=True,
     for kk in range(iters):
         print 'main', time() - t, kk
         for ll in range(L):
-            if ll in skip:
-                continue
+            # if ll in skip:
+            #     continue
 
             # cut region and add neuron
             as0 = outer(activity[ll], shapes[ll])
@@ -270,11 +270,11 @@ def LocalNMF(data, centers, sig, NonNegative=True,
                 if NonNegative:
                     shapes[ll][shapes[ll] < 0] = 0
             as0 -= outer(activity[ll], shapes[ll])
-            if kk == 0:
-                noise[ll] = GetSnPSD(activity[ll])
-            elif np.allclose(0, as0.mean(1), 1e-6, .05 * noise[ll]):
-                skip += [ll]
-                print 'skip', ll
+            # if kk == 0:
+            #     noise[ll] = GetSnPSD(activity[ll])
+            # elif np.allclose(0, as0.mean(1), 1e-6, .05 * noise[ll]):
+            #     skip += [ll]
+            #     print 'skip', ll
             # Update region
             residual = RegionAdd(residual, as0, boxes[ll])
             # if ll==0: print '  RegionAdd', time() - t
