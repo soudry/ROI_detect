@@ -94,7 +94,6 @@ def LocalNMF(data, centers, sig, NonNegative=True,
         temp.shape = (1,) + dims[1:]
         temp = RegionCut(temp, boxes[ll])
         shapes.append(temp[0])
-    print 'init', time() - t
     residual = data.astype('float')
     if adaptBias:
          # Initialize background as 30% percentile
@@ -141,7 +140,7 @@ def LocalNMF(data, centers, sig, NonNegative=True,
         activ = activity[:, T0]
         res = residual[T0].copy()
         for kk in range(iters0):
-            print 'subset', time() - t, kk
+            # print 'subset', time() - t, kk
             for ll in range(L):
                 # cut region and add neuron
                 as0 = outer(activ[ll], shapes[ll])
@@ -253,7 +252,7 @@ def LocalNMF(data, centers, sig, NonNegative=True,
 #### Main Loop ####
     skip = []
     for kk in range(iters):
-        print 'main', time() - t, kk
+        # print 'main', time() - t, kk
         for ll in range(L):
             # if ll in skip:
             #     continue
@@ -324,21 +323,22 @@ def LocalNMF(data, centers, sig, NonNegative=True,
 
 ########################################################
 
-# Fetch Data, take only 100x100 patch to not have to wait minutes
-sig = (4, 4)
-lam = 40
-data = np.asarray([np.load('../zebrafish/ROI_zebrafish/data/1/nparrays/TM0%04d_200-400_350-550_15.npy' % t)
-                   for t in range(3000)])[:, :100, :100]
-x = np.load('x.npy')[:, :100, :100]  # x is stored result from grouplasso
-pic_x = np.percentile(x, 95, 0)
-cent = GetCenters(pic_x)
+if __name__ == "__main__":
+    # Fetch Data, take only 100x100 patch to not have to wait minutes
+    sig = (4, 4)
+    lam = 40
+    data = np.asarray([np.load('../zebrafish/ROI_zebrafish/data/1/nparrays/TM0%04d_200-400_350-550_15.npy' % t)
+                       for t in range(3000)])[:, :100, :100]
+    x = np.load('x.npy')[:, :100, :100]  # x is stored result from grouplasso
+    pic_x = np.percentile(x, 95, 0)
+    cent = GetCenters(pic_x)
 
-MSE_array = [LocalNMF(data, (array(cent)[:-1]).T, sig, verbose=True, iters=5, iters0=i)[0]
-             for i in range(4)]
-plt.figure()
-for i, m in enumerate(MSE_array):
-    plt.plot(*np.array(m).T, label=i)
-plt.legend(title='subset iterations')
-plt.xlabel('Walltime')
-plt.ylabel('MSE')
-plt.show()
+    MSE_array = [LocalNMF(data, (array(cent)[:-1]).T, sig, verbose=True, iters=5, iters0=i)[0]
+                 for i in range(4)]
+    plt.figure()
+    for i, m in enumerate(MSE_array):
+        plt.plot(*np.array(m).T, label=i)
+    plt.legend(title='subset iterations')
+    plt.xlabel('Walltime')
+    plt.ylabel('MSE')
+    plt.show()

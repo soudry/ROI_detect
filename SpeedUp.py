@@ -53,8 +53,8 @@ def GetCenters(image):
     return peaks
 
 
-def LocalNMF(data, centers, sig, NonNegative=True,
-             tol=1e-5, iters=10, verbose=False, adaptBias=True, iters0=[0], mbs=None):
+def LocalNMF(data, centers, sig, NonNegative=True, tol=1e-6, iters=10, verbose=False,
+             adaptBias=True, iters0=[0], mbs=None, ds=2):
     """
     Parameters
     ----------
@@ -101,10 +101,10 @@ def LocalNMF(data, centers, sig, NonNegative=True,
     MSE_array = []
     mb = mbs[0] if iters0[0] > 0 else 1
     activity = zeros((L, dims[0] / mb))
-    ds = 2 if iters0[0] > 0 else 1  # downscale
     tls = []
     tsub = 0
-
+    if iters0[0] == 0:
+        ds = 1
 
 ### Function definitions ###
     # Estimate noise level
@@ -152,29 +152,31 @@ def LocalNMF(data, centers, sig, NonNegative=True,
 
         return residual, S, activity, skip, tsub
 
-    def HALS4activity(data, S, activity):
+    def HALS4activity(data, S, activity, iters=1):
         A = S.dot(data.T)
         B = S.dot(S.T)
-        for ll in range(L + adaptBias):
-            activity[ll] += nan_to_num((A[ll] - np.dot(B[ll].T, activity)) / B[ll, ll])
-            if NonNegative:
-                activity[ll][activity[ll] < 0] = 0
+        for _ in range(iters):
+            for ll in range(L + adaptBias):
+                activity[ll] += nan_to_num((A[ll] - np.dot(B[ll].T, activity)) / B[ll, ll])
+                if NonNegative:
+                    activity[ll][activity[ll] < 0] = 0
         tsub = time()
         residual = data - activity.T.dot(S)
         tsub -= time()
         return residual, activity, tsub
 
-    def HALS4shape(data, S, activity):
+    def HALS4shape(data, S, activity, iters=1):
         C = activity.dot(data)
         D = activity.dot(activity.T)
-        for ll in range(L + adaptBias):
-            if ll == L:
-                S[ll] += nan_to_num((C[ll] - np.dot(D[ll], S)) / D[ll, ll])
-            else:
-                S[ll, mask[ll]] += nan_to_num((C[ll, mask[ll]]
-                                               - np.dot(D[ll], S[:, mask[ll]])) / D[ll, ll])
-            if NonNegative:
-                S[ll][S[ll] < 0] = 0
+        for _ in range(iters):
+            for ll in range(L + adaptBias):
+                if ll == L:
+                    S[ll] += nan_to_num((C[ll] - np.dot(D[ll], S)) / D[ll, ll])
+                else:
+                    S[ll, mask[ll]] += nan_to_num((C[ll, mask[ll]]
+                                                   - np.dot(D[ll], S[:, mask[ll]])) / D[ll, ll])
+                if NonNegative:
+                    S[ll][S[ll] < 0] = 0
         tsub = time()
         residual = data - activity.T.dot(S)
         tsub -= time()
@@ -182,7 +184,6 @@ def LocalNMF(data, centers, sig, NonNegative=True,
 
 
 ### Initialize shapes, activity, and residual ###
-    print 'init', time() - t
     # from skimage.transform import downscale_local_mean
     data0 = data.reshape((-1, mb) + data.shape[-2:]).mean(1)
     # data0 = asarray([downscale_local_mean(r, (ds, ds)) for r in data0])
@@ -218,7 +219,7 @@ def LocalNMF(data, centers, sig, NonNegative=True,
         skip = []
         for it in range(len(iters0)):
             for kk in range(iters0[it]):
-                print 'subset', time() - t, kk, skip
+                # print 'subset', time() - t, kk, skip
                 _, S, activity, skip, dt = HALS(data0, S, activity, skip)
                 tsub += dt
             if it < len(iters0) - 1:
@@ -230,23 +231,29 @@ def LocalNMF(data, centers, sig, NonNegative=True,
 
     ### Back to full data ##
         activity = ones((L + adaptBias, dims[0])) * activity.mean(1).reshape(-1, 1)
-        S = repeat(repeat(S.reshape((-1,) + dims0[1:]), 2, 1), 2, 2).reshape(L + adaptBias, -1)
+        S = repeat(repeat(S.reshape((-1,) + dims0[1:]), ds, 1), ds, 2).reshape(L + adaptBias, -1)
         for ll in range(L):
             boxes[ll] = GetBox(centers[ll], R, dims[1:])
             temp = zeros(dims[1:])
             temp[map(lambda a: slice(*a), boxes[ll])] = 1
             mask[ll] = np.where(temp.ravel())[0]
 
-        for _ in range(1):
-            # replace data0 by residual for HALS using residual
-            res, activity, dt = HALS4activity(data, S, activity)
-            tsub += dt
+        residual, activity, dt = HALS4activity(data, S, activity, 5)
+        dt += time()
+        MSE = dot(residual.ravel(), residual.ravel())
+        tsub += dt - time()
+        tls += [[time() - t + tsub, MSE]]
 
+        residual, S, dt = HALS4shape(data, S, activity, 5)
+        dt += time()
+        MSE = dot(residual.ravel(), residual.ravel())
+        tsub += dt - time()
+        tls += [[time() - t + tsub, MSE]]
 
 #### Main Loop ####
     skip = []
     for kk in range(iters):
-        print 'main', time() - t, kk, tsub
+        # print 'main', time() - t, kk, tsub
         residual, S, activity, skip, dt = HALS(data, S, activity, skip)  # , kk + 1)
         # Recenter
         # if kk % 30 == 20:
@@ -266,8 +273,9 @@ def LocalNMF(data, centers, sig, NonNegative=True,
         #             boxes[ll] = newbox
 
         # Measure MSE
+        dt += time()
         MSE = dot(residual.ravel(), residual.ravel())
-        tsub += dt
+        tsub += dt - time()
         tls += [[time() - t + tsub, MSE]]
         if verbose:
             print('{0:1d}: MSE = {1:.3f}'.format(kk, MSE))

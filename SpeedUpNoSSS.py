@@ -123,7 +123,6 @@ def LocalNMF(data, centers, sig, NonNegative=True,
         temp.shape = (1,) + dims[1:]
         temp = RegionCut(temp, boxes[ll])
         shapes.append(temp[0])
-    print 'init', time() - t
     # faster by factor 2 compared to keeping int16
     data = data.astype('float').reshape(dims[0], -1)
     residual = data.reshape((-1, mb) + dims[1:]).mean(1)
@@ -360,7 +359,7 @@ def LocalNMF(data, centers, sig, NonNegative=True,
         skip = []
         for it in range(len(iters0)):
             for kk in range(iters0[it]):
-                print 'subset', time() - t, kk, skip
+                # print 'subset', time() - t, kk, skip
                 # replace data0 by residual for HALS using residual
                 _, S, activity, skip, dt = HALS(data0, S, activity, skip)
                 tsub += dt
@@ -384,7 +383,9 @@ def LocalNMF(data, centers, sig, NonNegative=True,
             residual, activity, dt = HALS4activity(data, S, activity)
             tsub += dt
 
+        tsub += time()
         MSE = dot(residual.ravel(), residual.ravel())
+        tsub -= time()
         tls += [[time() - t + tsub, MSE]]
         if verbose:
             print('{0:1d}: MSE = {1:.3f}'.format(-1, MSE))
@@ -395,7 +396,7 @@ def LocalNMF(data, centers, sig, NonNegative=True,
 #### Main Loop ####
     skip = []
     for kk in range(iters):
-        print 'main', time() - t, kk, tsub
+        # print 'main', time() - t, kk, tsub
         # , kk + 1)  # replace data by residual for HALS using residual
         residual, S, activity, skip, dt = HALS(data, S, activity, skip)
         # Recenter
@@ -416,8 +417,9 @@ def LocalNMF(data, centers, sig, NonNegative=True,
         #             boxes[ll] = newbox
 
         # Measure MSE
+        dt += time()
         MSE = dot(residual.ravel(), residual.ravel())
-        tsub += dt
+        tsub += dt - time()
         tls += [[time() - t + tsub, MSE]]
         if verbose:
             print('{0:1d}: MSE = {1:.3f}'.format(kk, MSE))
@@ -427,7 +429,7 @@ def LocalNMF(data, centers, sig, NonNegative=True,
             print('Maximum iteration limit reached')
         MSE_array.append(MSE)
     if adaptBias:
-        return tls, shapes, activity, boxes  # , outer(b_t, b_s).reshape(dims)
+        return tls, S, activity, boxes  # , outer(b_t, b_s).reshape(dims)
     else:
         return MSE_array, shapes, activity, boxes
 
