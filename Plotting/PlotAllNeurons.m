@@ -122,14 +122,14 @@ for zz=1:Z
         end
     end
 
-if ~isempty(file_name)
-    figure(h1)
-    if Z>1
-        Export2Folder([ 'shapes'  num2str(fig_count) '_z=' num2str(zz) '_' figure_name],folder);
-    else
-        Export2Folder([ 'shapes' num2str(fig_count)  '_' figure_name],folder);
-    end
-end
+% if ~isempty(file_name)
+%     figure(h1)
+%     if Z>1
+%         Export2Folder([ 'shapes'  num2str(fig_count) '_z=' num2str(zz) '_' figure_name],folder);
+%     else
+%         Export2Folder([ 'shapes' num2str(fig_count)  '_' figure_name],folder);
+%     end
+% end
 
 
     
