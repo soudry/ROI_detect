@@ -1,9 +1,9 @@
-from numpy import min, max, array, percentile, outer, zeros, dot, reshape, r_, ix_, arange, exp, nan_to_num
+from numpy import min, max, array, asarray, percentile, zeros, ones, dot, \
+    reshape, r_, ix_, arange, exp, nan_to_num, argsort, prod, mean, sqrt, repeat
 from time import time
 import numpy as np
 from scipy.signal import welch
 import matplotlib.pyplot as plt
-from BlockGroupLasso import gaussian_group_lasso, GetCenters, GetROI, GetActivity
 
 
 def GetBox(centers, R, dims):
@@ -37,8 +37,24 @@ def RegionCut(X, box):
     return X[[slice(dims[0])] + list(map(lambda a: slice(*a), box))].reshape((dims[0], -1))
 
 
+def GetCenters(image):
+    """ Take a image and detect the peaks using local maximum filter.
+    input: a 2D image
+    output: peaks list, in which
+        peaks[0] - y coordinates
+        peaks[1] - x coordinates
+        peaks[2] - magnitude ("height") of peak
+    """
+    from skimage.feature import peak_local_max
+    peaks = peak_local_max(image, min_distance=3, threshold_rel=.03, exclude_border=False).T
+    magnitude = image[list(peaks)]
+    indices = argsort(magnitude)[::-1]
+    peaks = list(peaks[:, indices]) + [magnitude[indices]]
+    return peaks
+
+
 def LocalNMF(data, centers, sig, NonNegative=True,
-             tol=1e-4, iters=10, verbose=False, adaptBias=True, iters0=0):
+             tol=1e-5, iters=10, verbose=False, adaptBias=True, iters0=[0], mbs=None):
     """
     Parameters
     ----------
@@ -77,219 +93,161 @@ def LocalNMF(data, centers, sig, NonNegative=True,
     # Initialize Parameters
     dims = data.shape
     D = len(dims)
-    R = 3 * array(sig)  # size of bounding box is 4 times size of neuron
+    R = 3 * array(sig)  # size of bounding box is 3 times size of neuron
     L = len(centers)
     shapes = []
+    mask = []
     boxes = zeros((L, D - 1, 2), dtype=int)
     MSE_array = []
-    activity = np.zeros((L, dims[0]))
+    mb = mbs[0] if iters0[0] > 0 else 1
+    activity = zeros((L, dims[0] / mb))
+    ds = 2 if iters0[0] > 0 else 1  # downscale
+    tls = []
+    tsub = 0
 
 
-# Initialize shapes, activity, and residual
-    for ll in range(L):
-        boxes[ll] = GetBox(centers[ll], R, dims[1:])
-        temp = [(arange(dims[i + 1]) - centers[ll][i]) ** 2 / (2 * sig[i] ** 2)
-                for i in range(D - 1)]
-        temp = exp(-sum(ix_(*temp)))
-        temp.shape = (1,) + dims[1:]
-        temp = RegionCut(temp, boxes[ll])
-        shapes.append(temp[0])
-    print 'init', time() - t
-    residual = data.astype('float')
-    if adaptBias:
-         # Initialize background as 30% percentile
-        # b_t = ones(len(residual))
-        b_s = percentile(residual, 30, 0)  # .ravel()
-        residual -= b_s
-    # Initialize activity from strongest to weakest
-    # based on data-background-stronger neurons and Gaussian shapes
-    for ll in np.argsort([residual[:, c[0], c[1]].max() for c in centers])[::-1]:
-        X = RegionCut(residual, boxes[ll])
-        activity[ll] = dot(X, shapes[ll]) / dot(shapes[ll], shapes[ll])
-        if NonNegative:
-            activity[ll][activity[ll] < 0] = 0
-        residual = RegionAdd(residual, -outer(activity[ll], shapes[ll]), boxes[ll])
-
-    # (Re)calculate background based on data-neurons using nonnegative greedy PCA
-    if adaptBias:
-        residual += b_s
-        residual.shape = (dims[0], -1)
-        b_s = b_s.ravel()
-        b_t = dot(residual, b_s) / dot(b_s, b_s)
-        b_t[b_t < 0] = 0
-        b_s = dot(residual.T, b_t) / dot(b_t, b_t)
-        b_s[b_s < 0] = 0
-        # res0 = residual.copy()
-        residual -= outer(b_t, b_s)
-        residual.shape = dims
-        zz = b_t.mean()
-        b_s *= zz
-        b_t /= zz
-
-    tls = [[time() - t, dot(residual.ravel(), residual.ravel())]]
-
-#### Get shape estimates on subset of data ####
-    if iters0 > 0:
-        shapes0 = np.copy(shapes)
-        T0 = np.arange(1000)  # timeindices for subsampling
-        # T0 = np.arange(0,3000,3)
-        # T0 = reduce(np.union1d, [np.argsort(a)[-20:] for a in activity])  # high
-        # activity timepoints
-        if adaptBias:
-            b_t0 = b_t[T0].copy()
-        # shapes0 = np.copy(shapes)
-        activ = activity[:, T0]
-        res = residual[T0].copy()
-        for kk in range(iters0):
-            print 'subset', time() - t, kk
-            for ll in range(L):
-                # cut region and add neuron
-                as0 = outer(activ[ll], shapes[ll])
-                X = RegionCut(res, boxes[ll]) + as0
-
-        # NonNegative greedy PCA
-                for _ in range(2):
-                    activ[ll] = nan_to_num(dot(X, shapes[ll]) / dot(shapes[ll], shapes[ll]))
-                    if NonNegative:
-                        activ[ll][activ[ll] < 0] = 0
-                    shapes[ll] = nan_to_num(dot(X.T, activ[ll]) / dot(activ[ll], activ[ll]))
-                    if NonNegative:
-                        shapes[ll][shapes[ll] < 0] = 0
-
-        # Update region
-                res = RegionAdd(res, as0 - outer(activ[ll], shapes[ll]), boxes[ll])
-
-        # Recalculate background
-            if adaptBias:
-                res.shape = (len(T0), -1)
-                res += outer(b_t0, b_s)
-                for _ in range(1):
-                    b_s = dot(res.T, b_t0) / dot(b_t0, b_t0)
-                    b_s[b_s < 0] = 0
-                    b_t0 = dot(res, b_s) / dot(b_s, b_s)
-                    b_t0[b_t0 < 0] = 0
-                res -= outer(b_t0, b_s)
-                res.shape = [len(T0)] + list(dims[1:])
-
-    ### Back to full data ##
-    # Update activities
-    #     for ll in range(L):
-    # cut region and add neuron
-    #         X = RegionCut(residual, boxes[ll]) + outer(activity[ll], shapes0[ll])
-    #         activity[ll] = nan_to_num(dot(X, shapes[ll]) / dot(shapes[ll], shapes[ll]))
-    #     if NonNegative:
-    #         activity[activity < 0] = 0
-    # (Re)calculate background based on data-neurons using shape from subset
-    #     residual = data.astype('float')
-    #     for ll in range(L):
-    #         residual = RegionAdd(residual, -outer(activity[ll], shapes[ll]), boxes[ll])
-    #     if adaptBias:
-    #         residual.shape = (dims[0], -1)
-    #         b_t = dot(residual, b_s) / dot(b_s, b_s)
-    #         b_t[b_t < 0] = 0
-    #         residual -= outer(b_t, b_s)
-    #         residual.shape = dims
-
-        residual = data.astype('float')
-        if adaptBias:
-            b_s *= b_t0.mean()
-            residual -= b_s.reshape(dims[1:])
-        # Initialize activity from strongest to weakest
-        # based on data-background-stronger neurons and Gaussian shapes
-        for ll in np.argsort([residual[:, c[0], c[1]].max() for c in centers])[::-1]:
-            X = RegionCut(residual, boxes[ll])
-            activity[ll] = dot(X, shapes[ll]) / dot(shapes[ll], shapes[ll])
-            if NonNegative:
-                activity[ll][activity[ll] < 0] = 0
-            residual = RegionAdd(residual, -outer(activity[ll], shapes[ll]), boxes[ll])
-
-        # (Re)calculate background based on data-neurons using nonnegative greedy PCA
-        if adaptBias:
-            residual.shape = (dims[0], -1)
-            residual += b_s
-            b_s = b_s.ravel()
-            b_t = dot(residual, b_s) / dot(b_s, b_s)
-            b_t[b_t < 0] = 0
-            b_s = dot(residual.T, b_t) / dot(b_t, b_t)
-            b_s[b_s < 0] = 0
-            residual -= outer(b_t, b_s)
-            residual.shape = dims
-            zz = b_t.mean()
-            b_s *= zz
-            b_t /= zz
-
-
-# Update background first
-#     residual = data.astype('float')
-#     if adaptBias:
-# b_s = dot(residual.T, b_t) / dot(b_t, b_t)
-# b_s[b_s < 0] = 0
-#         b_t = dot(resWB, b_s) / dot(b_s, b_s)
-#         b_t[b_t < 0] = 0
-# residual.shape = (dims[0], -1)
-#     residual -= outer(b_t, b_s).reshape(dims)
-# for ll in range(L):
-# X = RegionCut(residual, boxes[ll])
-# activity[ll] = dot(X, shapes[ll]) / dot(shapes[ll], shapes[ll])
-# if NonNegative:
-# activity[ll][activity[ll] < 0] = 0
-#     for ll in np.argsort([residual[:, c[0], c[1]].max() for c in centers])[::-1]:
-#         X = RegionCut(residual, boxes[ll])
-#         activity[ll] = dot(X, shapes[ll]) / dot(shapes[ll], shapes[ll])
-#         if NonNegative:
-#             activity[ll][activity[ll] < 0] = 0
-#         residual = RegionAdd(residual, -outer(activity[ll], shapes[ll]), boxes[ll])
-# for ll in range(L):
-# residual = RegionAdd(residual, -outer(activity[ll], shapes[ll]), boxes[ll])
-
-# Estimate noise level
+### Function definitions ###
+    # Estimate noise level
     def GetSnPSD(Y):
         L = len(Y)
         ff, psd_Y = welch(Y, nperseg=round(L / 8))
-        sn = np.sqrt(np.mean(psd_Y[ff > .3] / 2))
+        sn = sqrt(mean(psd_Y[ff > .3] / 2))
         return sn
-    noise = np.zeros(L)
+    noise = zeros(L)
+
+    def HALS(data, S, activity, skip=[], check_skip=0):
+        A = data.dot(S.T)
+        B = S.dot(S.T)
+        for ll in range(L + adaptBias):
+            if ll in skip:
+                continue
+            if check_skip:
+                a0 = activity[ll].copy()
+            activity[ll] += nan_to_num((A[:, ll] - np.dot(activity.T, B[:, ll])) / B[ll, ll])
+            if NonNegative:
+                activity[ll][activity[ll] < 0] = 0
+        # skip neurons whose shapes already converged
+            if check_skip and ll < L:
+                if check_skip == 1:  # compute noise level only once
+                    noise[ll] = GetSnPSD(a0)
+                if np.allclose(a0, activity[ll] / activity[ll].mean(), 1e-4, .01 * noise[ll]):
+                    skip += [ll]
+
+        C = activity.dot(data)
+        D = activity.dot(activity.T)
+        for ll in range(L + adaptBias):
+            if ll in skip:
+                continue
+            if ll == L:
+                S[ll] += nan_to_num((C[ll] - np.dot(D[ll], S)) / D[ll, ll])
+            else:
+                S[ll, mask[ll]] += nan_to_num((C[ll, mask[ll]]
+                                               - np.dot(D[ll], S[:, mask[ll]])) / D[ll, ll])
+            if NonNegative:
+                S[ll][S[ll] < 0] = 0
+
+        tsub = time()
+        residual = data - activity.T.dot(S)
+        tsub -= time()
+
+        return residual, S, activity, skip, tsub
+
+    def HALS4activity(data, S, activity):
+        A = S.dot(data.T)
+        B = S.dot(S.T)
+        for ll in range(L + adaptBias):
+            activity[ll] += nan_to_num((A[ll] - np.dot(B[ll].T, activity)) / B[ll, ll])
+            if NonNegative:
+                activity[ll][activity[ll] < 0] = 0
+        tsub = time()
+        residual = data - activity.T.dot(S)
+        tsub -= time()
+        return residual, activity, tsub
+
+    def HALS4shape(data, S, activity):
+        C = activity.dot(data)
+        D = activity.dot(activity.T)
+        for ll in range(L + adaptBias):
+            if ll == L:
+                S[ll] += nan_to_num((C[ll] - np.dot(D[ll], S)) / D[ll, ll])
+            else:
+                S[ll, mask[ll]] += nan_to_num((C[ll, mask[ll]]
+                                               - np.dot(D[ll], S[:, mask[ll]])) / D[ll, ll])
+            if NonNegative:
+                S[ll][S[ll] < 0] = 0
+        tsub = time()
+        residual = data - activity.T.dot(S)
+        tsub -= time()
+        return residual, S, tsub
+
+
+### Initialize shapes, activity, and residual ###
+    print 'init', time() - t
+    # from skimage.transform import downscale_local_mean
+    data0 = data.reshape((-1, mb) + data.shape[-2:]).mean(1)
+    # data0 = asarray([downscale_local_mean(r, (ds, ds)) for r in data0])
+    data0 = data0.reshape(len(data0), dims[1] / ds, ds, dims[2] / ds, ds).mean(-1).mean(-2)
+    dims0 = data0.shape
+    activity = data0[:, map(int, centers[:, 0] / ds), map(int, centers[:, 1] / ds)].T
+    activity = np.r_[activity, ones((1, dims0[0]))]
+    data0 = data0.reshape(dims0[0], -1)
+    data = data.astype('float').reshape(dims[0], -1)
+    # float is faster than float32, presumable float32 gets converted later on
+    # to float agina and again
+    for ll in range(L):
+        boxes[ll] = GetBox(centers[ll] / ds, R / ds, dims0[1:])
+        temp = zeros(dims0[1:])
+        temp[map(lambda a: slice(*a), boxes[ll])]=1
+        mask += np.where(temp.ravel())
+        temp = [(arange(dims[i + 1] / ds) - centers[ll][i] / ds) ** 2 / (2 * (sig[i] / ds) ** 2)
+                for i in range(D - 1)]
+        temp = exp(-sum(ix_(*temp)))
+        temp.shape = (1,) + dims0[1:]
+        temp = RegionCut(temp, boxes[ll])
+        shapes.append(temp[0])
+    S = zeros((L + adaptBias, prod(dims0[1:])))
+    for ll in range(L):
+        S[ll] = RegionAdd(
+            zeros((1,) + dims0[1:]), shapes[ll].reshape(1, -1), boxes[ll]).ravel()
+    if adaptBias:
+        # Initialize background as 20% percentile
+        S[-1] = percentile(data0, 20, 0)
+
+### Get shape estimates on subset of data ###
+    if iters0[0] > 0:
+        skip = []
+        for it in range(len(iters0)):
+            for kk in range(iters0[it]):
+                print 'subset', time() - t, kk, skip
+                _, S, activity, skip, dt = HALS(data0, S, activity, skip)
+                tsub += dt
+            if it < len(iters0) - 1:
+                mb = mbs[it + 1]
+                data0 = data.reshape(-1, mb, prod(dims[1:])).mean(1)
+                activity = ones((L + adaptBias, len(data0))) * activity.mean(1).reshape(-1, 1)
+                residual, activity, dt = HALS4activity(data0, S, activity)
+                tsub += dt
+
+    ### Back to full data ##
+        activity = ones((L + adaptBias, dims[0])) * activity.mean(1).reshape(-1, 1)
+        S = repeat(repeat(S.reshape((-1,) + dims0[1:]), 2, 1), 2, 2).reshape(L + adaptBias, -1)
+        for ll in range(L):
+            boxes[ll] = GetBox(centers[ll], R, dims[1:])
+            temp = zeros(dims[1:])
+            temp[map(lambda a: slice(*a), boxes[ll])] = 1
+            mask[ll] = np.where(temp.ravel())[0]
+
+        for _ in range(1):
+            # replace data0 by residual for HALS using residual
+            res, activity, dt = HALS4activity(data, S, activity)
+            tsub += dt
+
 
 #### Main Loop ####
     skip = []
     for kk in range(iters):
-        print 'main', time() - t, kk
-        for ll in range(L):
-            # if ll in skip:
-            #     continue
-
-            # cut region and add neuron
-            as0 = outer(activity[ll], shapes[ll])
-            X = RegionCut(residual, boxes[ll]) + as0
-            # NonNegative greedy PCA
-            for ii in range(3):
-                activity[ll] = nan_to_num(dot(X, shapes[ll]) / dot(shapes[ll], shapes[ll]))
-                if NonNegative:
-                    activity[ll][activity[ll] < 0] = 0
-                shapes[ll] = nan_to_num(dot(X.T, activity[ll]) / dot(activity[ll], activity[ll]))
-                if NonNegative:
-                    shapes[ll][shapes[ll] < 0] = 0
-            as0 -= outer(activity[ll], shapes[ll])
-            # if kk == 0:
-            #     noise[ll] = GetSnPSD(activity[ll])
-            # elif np.allclose(0, as0.mean(1), 1e-6, .05 * noise[ll]):
-            #     skip += [ll]
-            #     print 'skip', ll
-            # Update region
-            residual = RegionAdd(residual, as0, boxes[ll])
-            # if ll==0: print '  RegionAdd', time() - t
-
-        # Recalculate background
-        if adaptBias:
-            residual.shape = (dims[0], -1)
-            residual += outer(b_t, b_s)
-            for _ in range(1):
-                b_s = dot(residual.T, b_t) / dot(b_t, b_t)
-                b_s[b_s < 0] = 0
-                b_t = dot(residual, b_s) / dot(b_s, b_s)
-                b_t[b_t < 0] = 0
-            residual -= outer(b_t, b_s)
-            residual.shape = dims
+        print 'main', time() - t, kk, tsub
+        residual, S, activity, skip, dt = HALS(data, S, activity, skip)  # , kk + 1)
         # Recenter
         # if kk % 30 == 20:
         #     for ll in range(L):
@@ -301,7 +259,7 @@ def LocalNMF(data, centers, sig, NonNegative=True,
         #             lower = vstack([newbox[:, 0], boxes[ll][:, 0]]).max(0)
         #             upper = vstack([newbox[:, 1], boxes[ll][:, 1]]).min(0)
         #             newshape[lower[0] - newbox[0, 0]:upper[0] - newbox[0, 0],
-        #                      lower[1] - newbox[1, 0]:upper[1] - newbox[1, 0]] = \
+        #                      lower[1] - newbox[1, 0]:upper[1] - newbox[1, 0]] =
         #                 shp[lower[0] - boxes[ll][0, 0]:upper[0] - boxes[ll][0, 0],
         #                     lower[1] - boxes[ll][1, 0]:upper[1] - boxes[ll][1, 0]]
         #             shapes[ll] = newshape.reshape(-1)
@@ -309,7 +267,8 @@ def LocalNMF(data, centers, sig, NonNegative=True,
 
         # Measure MSE
         MSE = dot(residual.ravel(), residual.ravel())
-        tls += [[time() - t, MSE]]
+        tsub += dt
+        tls += [[time() - t + tsub, MSE]]
         if verbose:
             print('{0:1d}: MSE = {1:.3f}'.format(kk, MSE))
         if kk > 0 and abs(1 - MSE / MSE_array[-1]) < tol:
@@ -318,27 +277,39 @@ def LocalNMF(data, centers, sig, NonNegative=True,
             print('Maximum iteration limit reached')
         MSE_array.append(MSE)
     if adaptBias:
-        return tls, shapes, activity, boxes, outer(b_t, b_s).reshape(dims)
+        return tls, S, activity, boxes  # , outer(b_t, b_s).reshape(dims)
     else:
-        return MSE_array, shapes, activity, boxes
+        return MSE_array, S, activity, boxes
 
 ########################################################
 
-# Fetch Data, take only 100x100 patch to not have to wait minutes
-sig = (4, 4)
-lam = 40
-data = np.asarray([np.load('../zebrafish/ROI_zebrafish/data/1/nparrays/TM0%04d_200-400_350-550_15.npy' % t)
-                   for t in range(3000)])[:, :100, :100]
-x = np.load('x.npy')[:, :100, :100]  # x is stored result from grouplasso
-pic_x = np.percentile(x, 95, 0)
-cent = GetCenters(pic_x)
+if __name__ == "__main__":
+    # Fetch Data, take only 100x100 patch to not have to wait minutes
+    sig = (4, 4)
+    lam = 40
+    data = np.asarray([np.load('../zebrafish/ROI_zebrafish/data/1/nparrays/TM0%04d_200-400_350-550_15.npy' % t)
+                       for t in range(3000)])[:, : 100, : 100]
+    x = np.load('x.npy')[:, : 100, : 100]  # x is stored result from grouplasso
+    pic_x = np.percentile(x, 95, 0)
+    cent = GetCenters(pic_x)
 
-MSE_array = [LocalNMF(data, (array(cent)[:-1]).T, sig, verbose=True, iters=5, iters0=i)[0]
-             for i in range(4)]
-plt.figure()
-for i, m in enumerate(MSE_array):
-    plt.plot(*np.array(m).T, label=i)
-plt.legend(title='subset iterations')
-plt.xlabel('Walltime')
-plt.ylabel('MSE')
-plt.show()
+    # iterls = np.outer([10, 20, 40, 60, 80], np.ones(2, dtype=int)) / 2
+    # iterls = [10, 20, 40, 60, 80]
+    iterls = [80]
+    MSE_array = [LocalNMF(data, (array(cent)[:-1]).T, sig, verbose=True, iters=20, iters0=[i], mbs=[30])[0]
+                 for i in iterls]
+    plt.figure()
+    for i, m in enumerate(MSE_array):
+        plt.plot(np.array(m)[:, 0], np.array(m)[:, 1] / data.size, label=iterls[i])
+    plt.legend(title='subset iterations')
+    plt.xlabel('Walltime')
+    plt.ylabel('MSE')
+    plt.show()
+
+    # tls, shapes, activity, boxes, background = LocalNMF(
+    #     data, (array(cent)[:-1]).T, sig, verbose=True, iters=1, iters0=[60], mbs=[30])
+    # for ll in range(len(shapes)):
+    # figure()
+    # imshow(shapes[ll].reshape(np.diff(boxes[ll], 1).ravel()))
+    # figure()
+    # imshow(shapes[-1].reshape(np.diff(boxes[-1], 1).ravel()))
