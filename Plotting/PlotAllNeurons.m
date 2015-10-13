@@ -36,7 +36,7 @@ for ll=1:L
         if  ~mod(ll-1,max_plots_in_figure)
             if and(ll~=1,~isempty(file_name))
                 figure(h2)
-                Export2Folder([ 'activity' num2str(fig_count) '_' figure_name],folder);     
+%                 Export2Folder([ 'activity' num2str(fig_count) '_' figure_name],folder);     
             end
             h2=figure(201+fig_count);
             ha2 = tight_subplot(a,b,[.05 .03],[.03 .05],[.03 .01]) ;
@@ -63,7 +63,7 @@ end
 
 if ~isempty(file_name)
     figure(h2)
-    Export2Folder([ 'activity' num2str(fig_count) '_' figure_name],folder);     
+%     Export2Folder([ 'activity' num2str(fig_count) '_' figure_name],folder);     
 end
 
 
@@ -73,11 +73,11 @@ for zz=1:Z
         if  ~mod(ll-1,max_plots_in_figure)
             if  and(ll~=1,~isempty(file_name))
                 figure(h1)
-                if Z>1
-                    Export2Folder([ 'shapes' num2str(fig_count)  '_z=' num2str(zz) '_' figure_name],folder);
-                else
-                    Export2Folder([ 'shapes' num2str(fig_count)  '_' figure_name],folder);
-                end
+%                 if Z>1
+%                     Export2Folder([ 'shapes' num2str(fig_count)  '_z=' num2str(zz) '_' figure_name],folder);
+%                 else
+%                     Export2Folder([ 'shapes' num2str(fig_count)  '_' figure_name],folder);
+%                 end
             end
             h1=figure(110+fig_count+zz*100)
             set(h1,'units','normalized','outerposition',[0 0 1 1])
