@@ -44,7 +44,8 @@ near the edges and used overlapping patchs to compnesate.
 """
 
 
-def gaussian_group_lasso(data, sig, lam=0.5, tol=1e-2, iters=100, NonNegative=True, TargetAreaRatio=[], verbose=False, adaptBias=False):
+def gaussian_group_lasso(data, sig, lam=0.1, tol=1e-2, iters=100, NonNegative=True, 
+    TargetAreaRatio=[], verbose=False, adaptBias=False):
     """ Solve gaussian group lasso problem min_x 1/2*||Ax-data||_F^2 + lam*Omega(x)
         where Ax is convolution of x with a Gaussian filter A,
         and Omega is the group l1/l2 norm promoting spatial sparsity
@@ -152,16 +153,7 @@ def fista(data, prox, Omega, A, lam, L, x0=None, tol=1e-8, iters=100, NonNegativ
     tk1 = 1
     sz = data.shape
     if x0 is None:
-        from scipy.ndimage.filters import gaussian_filter, median_filter
-        x0 = zeros(sz, dtype='float32')  # 419459.4
-        # x0 = data * (data>percentile(data,99.9)) #417182.4
-        # x0 = data * (data>percentile(data,99.5)) #418335.9
-        # x0 = data * asarray([data[i] > percentile(data[i], 99.9) for i in range(len(data))])
-        # x0 = asarray([median_filter(d,5) for d in data])
-        # x0 *= asarray([x0i > percentile(x0i, 99) for x0i in x0]) #416122.1
-        # x0 *= (x0 > percentile(x0, 99)) #416202.2
-        # x0 = asarray([gaussian_filter(d,2) for d in data])
-        # x0 *= (x0 > percentile(x0, 99)) #415899.2
+        x0 = zeros(sz, dtype='float32') 
     yk = x0
     xk = x0
     v = (2 / L * A(data.astype('float32'), do_transpose=True))
@@ -257,7 +249,7 @@ def GetCenters(image):
         peaks[2] - magnitude ("height") of peak
     """
     from skimage.feature import peak_local_max
-    peaks = peak_local_max(image, min_distance=3, threshold_rel=.03).T
+    peaks = peak_local_max(image, min_distance=3, threshold_rel=.03, exclude_border=False).T
     magnitude = image[list(peaks)]
     indices = argsort(magnitude)[::-1]
     peaks = list(peaks[:, indices]) + [magnitude[indices]]

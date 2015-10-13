@@ -4,12 +4,12 @@ from __future__ import division
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from numpy.random import randn, randint
-from numpy import zeros, transpose, min, max, array, prod, percentile, outer
+from numpy import zeros, transpose, min, max, array, prod, percentile
 from scipy.io import loadmat
 from scipy.ndimage.filters import gaussian_filter
 from sys import argv
-from BlockGroupLasso import gaussian_group_lasso, GetCenters, GetROI, GetActivity
-from BlockLocalNMF import LocalNMF, RegionAdd
+from BlockGroupLasso import gaussian_group_lasso, GetCenters
+from BlockLocalNMF import LocalNMF
 
 data_source = 1 if len(argv) == 1 else int(argv[1])
 plt.close('all')
@@ -51,28 +51,23 @@ elif data_source == 3:   # Use experimental 3D data
 
 
 # Run source detection algorithms
-x = gaussian_group_lasso(data, sig, lam, NonNegative=NonNegative,
-                         TargetAreaRatio=TargetRange, verbose=True, adaptBias=True)
+x = gaussian_group_lasso(data, sig, lam,
+                         NonNegative=NonNegative, TargetAreaRatio=TargetRange, verbose=True, adaptBias=True)
+# x = gaussian_group_lasso(data[:len(data) / 5 * 5].reshape((-1, 5) + data.shape[1:]).max(1), sig, lam/5.,
+#                          NonNegative=NonNegative, TargetAreaRatio=TargetRange, verbose=True, adaptBias=True)
 pic_x = percentile(x, 95, axis=0)
 pic_data = percentile(data, 95, axis=0)
 # centers extracted from fista output using RegionalMax
 cent = GetCenters(pic_x)
-# ROI around each center, using watersheding on non-zero regions
-ROI = GetROI(pic_x,  (array(cent)[:-1]).T)
-# temporal traces of activity for each neuron, averaged over each ROI
-activity = GetActivity(x, ROI)
 
-MSE_array, shapes, activity, boxes, background = LocalNMF(
-    data, (array(cent)[:-1]).T, activity, sig,
+MSE_array, shapes, activity, boxes = LocalNMF(
+    data, (array(cent)[:-1]).T, sig,
     NonNegative=NonNegative, verbose=True, adaptBias=True)
 
-L = len(shapes)  # number of detected neurons
-denoised_data = 0 * data
-for ll in range(L):  # add all detected neurons
-    denoised_data = RegionAdd(
-        denoised_data, outer(activity[ll], shapes[ll],), boxes[ll])
+L = len(cent[0])  # number of detected neurons
+denoised_data = activity[:L].T.dot(shapes[:L].reshape(L, -1)).reshape(data.shape)
 pic_denoised = percentile(denoised_data, 95, axis=0)
-residual = data - denoised_data - background
+residual = data - activity.T.dot(shapes.reshape(len(shapes), -1)).reshape(data.shape)
 
 # Plot Results
 plt.figure(figsize=(12, 4. * data.shape[1] / data.shape[2]))
@@ -115,6 +110,8 @@ ax3.scatter(cent[1], cent[0], s=7 * sig[1], marker='o', c='white')
 im3 = ax3.imshow(denoised_data[ii] if data_source !=
                  3 else denoised_data[ii].max(-1), vmin=mi, vmax=ma)
 ax3.set_title('Denoised')
+
+
 def update(ii):
     im.set_data(data[ii] if data_source != 3 else data[ii].max(-1))
     im2.set_data(residual[ii] if data_source != 3 else residual[ii].max(-1))
