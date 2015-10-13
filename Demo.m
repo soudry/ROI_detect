@@ -7,7 +7,7 @@ addpath('Misc')
 addpath('DataSets')
 addpath('Plotting')
 %% Set inputs - choose dataset
-option=1;
+option=3;
 
 if option==1
     data_name='Simulated';  %simulated 2D data
