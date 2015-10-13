@@ -1,4 +1,4 @@
-from numpy import min, max, array, asarray, percentile, zeros, ones, dot, \
+from numpy import min, max, array, asarray, percentile, zeros, zeros_like, ones, dot, \
     reshape, r_, ix_, arange, exp, nan_to_num, argsort, prod, mean, sqrt, repeat
 from time import time
 import numpy as np
@@ -115,36 +115,45 @@ def LocalNMF(data, centers, sig, NonNegative=True, tol=1e-6, iters=10, verbose=F
         return sn
     noise = zeros(L)
 
-    def HALS(data, S, activity, skip=[], check_skip=0):
-        A = data.dot(S.T)
-        B = S.dot(S.T)
-        for ll in range(L + adaptBias):
-            if ll in skip:
-                continue
-            if check_skip:
-                a0 = activity[ll].copy()
-            activity[ll] += nan_to_num((A[:, ll] - np.dot(activity.T, B[:, ll])) / B[ll, ll])
-            if NonNegative:
-                activity[ll][activity[ll] < 0] = 0
-        # skip neurons whose shapes already converged
-            if check_skip and ll < L:
-                if check_skip == 1:  # compute noise level only once
-                    noise[ll] = GetSnPSD(a0)
-                if np.allclose(a0, activity[ll] / activity[ll].mean(), 1e-4, .01 * noise[ll]):
-                    skip += [ll]
+    def HALS(data, S, activity, skip=[], check_skip=0, iters=1):
+        idx = asarray(filter(lambda x: x not in skip, range(len(activity))))
+        # A = zeros_like((len(idx), activity.shape[1]))
+        # B = zeros((len(idx), len(activity)))
+        # for ll in range(L + adaptBias):
+        #     if ll in skip:
+        #         continue
+        A = S[idx].dot(data.T)
+        B = S[idx].dot(S.T)
+        for ii in range(iters):
+            for k,ll in enumerate(idx):
+                if check_skip and ii == iters - 1:
+                    a0 = activity[ll].copy()
+                activity[ll] += nan_to_num((A[k] - np.dot(B[k], activity)) / B[k, ll])
+                if NonNegative:
+                    activity[ll][activity[ll] < 0] = 0
+            # skip neurons whose shapes already converged
+                if check_skip and ll < L and ii == iters - 1:
+                    if check_skip == 1:  # compute noise level only once
+                        noise[ll] = GetSnPSD(a0) / a0.mean()
+                    if np.allclose(a0, activity[ll] / activity[ll].mean(), 1e-4, noise[ll]):
+                        skip += [ll]
 
-        C = activity.dot(data)
-        D = activity.dot(activity.T)
-        for ll in range(L + adaptBias):
-            if ll in skip:
-                continue
-            if ll == L:
-                S[ll] += nan_to_num((C[ll] - np.dot(D[ll], S)) / D[ll, ll])
-            else:
-                S[ll, mask[ll]] += nan_to_num((C[ll, mask[ll]]
-                                               - np.dot(D[ll], S[:, mask[ll]])) / D[ll, ll])
-            if NonNegative:
-                S[ll][S[ll] < 0] = 0
+        # C = zeros_like(S)
+        # D = zeros((len(activity), len(activity)))
+        # for ll in range(L + adaptBias):
+        #     if ll in skip:
+        #         continue
+        C = activity[idx].dot(data)
+        D = activity[idx].dot(activity.T)
+        for _ in range(iters):
+            for k,ll in enumerate(idx):
+                if ll == L:
+                    S[ll] += nan_to_num((C[k] - np.dot(D[k], S)) / D[k, ll])
+                else:
+                    S[ll, mask[ll]] += nan_to_num((C[k, mask[ll]]
+                                                   - np.dot(D[k], S[:, mask[ll]])) / D[k, ll])
+                if NonNegative:
+                    S[ll][S[ll] < 0] = 0
 
         tsub = time()
         residual = data - activity.T.dot(S)
@@ -220,11 +229,15 @@ def LocalNMF(data, centers, sig, NonNegative=True, tol=1e-6, iters=10, verbose=F
         for it in range(len(iters0)):
             for kk in range(iters0[it]):
                 # print 'subset', time() - t, kk, skip
-                _, S, activity, skip, dt = HALS(data0, S, activity, skip)
+                _, activity, dt = HALS4activity(data0, S, activity)
+                tsub += dt
+                _, S, dt = HALS4shape(data0, S, activity)
                 tsub += dt
             if it < len(iters0) - 1:
                 mb = mbs[it + 1]
                 data0 = data.reshape(-1, mb, prod(dims[1:])).mean(1)
+                data0 = data0.reshape(len(data0), dims[1] / ds, ds, dims[2] / ds, ds).mean(-1).mean(-2)
+                data0.shape = (len(data0),-1)
                 activity = ones((L + adaptBias, len(data0))) * activity.mean(1).reshape(-1, 1)
                 residual, activity, dt = HALS4activity(data0, S, activity)
                 tsub += dt
@@ -238,13 +251,13 @@ def LocalNMF(data, centers, sig, NonNegative=True, tol=1e-6, iters=10, verbose=F
             temp[map(lambda a: slice(*a), boxes[ll])] = 1
             mask[ll] = np.where(temp.ravel())[0]
 
-        residual, activity, dt = HALS4activity(data, S, activity, 5)
+        residual, activity, dt = HALS4activity(data, S, activity, 7)
         dt += time()
         MSE = dot(residual.ravel(), residual.ravel())
         tsub += dt - time()
         tls += [[time() - t + tsub, MSE]]
 
-        residual, S, dt = HALS4shape(data, S, activity, 5)
+        residual, S, dt = HALS4shape(data, S, activity, 7)
         dt += time()
         MSE = dot(residual.ravel(), residual.ravel())
         tsub += dt - time()
@@ -254,7 +267,7 @@ def LocalNMF(data, centers, sig, NonNegative=True, tol=1e-6, iters=10, verbose=F
     skip = []
     for kk in range(iters):
         # print 'main', time() - t, kk, tsub
-        residual, S, activity, skip, dt = HALS(data, S, activity, skip)  # , kk + 1)
+        residual, S, activity, skip, dt = HALS(data, S, activity, skip, iters=10)  # , check_skip=kk + 1)
         # Recenter
         # if kk % 30 == 20:
         #     for ll in range(L):
