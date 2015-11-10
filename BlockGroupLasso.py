@@ -3,8 +3,8 @@ from __future__ import division
 from numpy import zeros, ones, maximum, std, sum, nan_to_num, nanmean, nan,\
     mean, max, sqrt, percentile, dot, outer, asarray, meshgrid, argsort, zeros_like
 from numpy.linalg import norm
-from scipy.ndimage.filters import gaussian_filter
 from scipy.ndimage.measurements import label
+from scipy.ndimage.filters import gaussian_filter
 
 """ See example script at the bottom.
 Some comments:
@@ -44,7 +44,7 @@ near the edges and used overlapping patchs to compnesate.
 """
 
 
-def gaussian_group_lasso(data, sig, lam=0.1, tol=1e-2, iters=100, NonNegative=True, 
+def gaussian_group_lasso(data, sig, lam=0.1, tol=1e-2, iters=30, NonNegative=True, 
     TargetAreaRatio=[], verbose=False, adaptBias=False):
     """ Solve gaussian group lasso problem min_x 1/2*||Ax-data||_F^2 + lam*Omega(x)
         where Ax is convolution of x with a Gaussian filter A,
@@ -168,8 +168,7 @@ def fista(data, prox, Omega, A, lam, L, x0=None, tol=1e-8, iters=100, NonNegativ
         if adaptBias:
             r = A(yk, do_transpose=False)
             qk = - 2 / L * A(r + outer(b_t, b_s).reshape(sz), do_transpose=True) + v
-            if kk % 5 == 4:
-                b_t, b_s = greedyNNPCA(data - r, b_s, 3)
+            b_t, b_s = greedyNNPCA(data - r, b_s, 1)
         else:
             qk = - 2 / L * A(yk, do_transpose=[False, True]) + v
         xk = prox(yk + qk, lam / L)

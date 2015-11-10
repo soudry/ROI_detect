@@ -1,8 +1,11 @@
-from numpy import min, max, asarray, percentile, zeros, zeros_like, ones, dot, where, round,\
-    reshape, r_, ix_, arange, exp, nan_to_num, prod, mean, sqrt, repeat, allclose, any, corrcoef
+from numpy import min, max, asarray, percentile, zeros, exp, unravel_index,\
+    ones, dot, where, round, reshape, r_, ix_, arange, nan_to_num, argmax,\
+    prod, mean, sqrt, repeat, allclose, any, outer, unique, hstack, isnan
 from numpy.linalg import norm
+from numpy.random import randint
 from scipy.signal import welch
 from scipy.ndimage.measurements import center_of_mass
+from scipy.ndimage import median_filter
 
 
 def GetBox(centers, R, dims):
@@ -37,14 +40,15 @@ def RegionCut(X, box):
 
 
 def LocalNMF(data, centers, sig, NonNegative=True, iters=10, verbose=False,
-             adaptBias=True, iters0=[80], mbs=[30], ds=None):
+             adaptBias=True, iters0=[80], mbs=[30], ds=None, optimizeCenters=True, thresh=None):
     """
     Parameters
     ----------
     data : array, shape (T, X, Y[, Z])
         block of the data
-    centers : array, shape (L, D)
-        L centers of suspected neurons where D is spatial dimension (2 or 3)
+    centers : array, shape (L, D) or int
+        if array : L centers of suspected neurons where D is spatial dimension (2 or 3)
+        if int : initial number of randomly placed tiles, ~3-10 times number of neurons
     sig : array, shape (D,)
         size of the gaussian kernel in different spatial directions
     NonNegative : boolean
@@ -61,6 +65,12 @@ def LocalNMF(data, centers, sig, NonNegative=True, iters=10, verbose=False,
         minibatchsizes for temporal downsampling
     ds : array, shape (D,)
         factor for spatial downsampling in different spatial directions
+    optimizeCenters : boolean
+        If true, update centers to be center of mass for each source
+    thresh : float
+        threshold for merging neurons; merge occurs if MSE between
+        original 2 components and merged one is below threshold
+        if None, no merging is done
 
 
     Returns
@@ -75,10 +85,17 @@ def LocalNMF(data, centers, sig, NonNegative=True, iters=10, verbose=False,
         edges of the boxes in which each neuronal shapes lie
     """
 
+    # thresh=1 seems good for sigma=(4,4), 5 for (3.,3.)
     # Initialize Parameters
     dims = data.shape
+    if isinstance(centers, (int, long)):
+        mode = 'rand'
+        centers = asarray([randint(0, d, centers) for d in dims[1:]]).T
+        centers = centers[np.argsort([data[:, c[0], c[1]].max() for c in centers])[::-1]]
+    else:
+        mode = 'ctrs'
     D = len(dims)
-    R = 3 * asarray(sig)  # size of bounding box is 3 times size of neuron
+    R = (3 * asarray(sig)).astype('uint8')  # size of bounding box is 3 times size of neuron
     L = len(centers)
     shapes = []
     mask = []
@@ -86,11 +103,10 @@ def LocalNMF(data, centers, sig, NonNegative=True, iters=10, verbose=False,
     MSE_array = []
     mb = mbs[0] if iters0[0] > 0 else 1
     activity = zeros((L, dims[0] / mb))
-    if iters0[0] == 0 or ds == None:
-        ds = ones(D - 1)
+    if iters0[0] == 0 or ds is None:
+        ds = 2 * ones(D - 1, dtype='uint8')
     else:
-        ds = asarray(ds)
-
+        ds = asarray(ds, dtype='uint8')
 
 ### Function definitions ###
     # Estimate noise level
@@ -155,6 +171,88 @@ def LocalNMF(data, centers, sig, NonNegative=True, iters=10, verbose=False,
                     S[ll][S[ll] < 0] = 0
         return S
 
+    def recenter(S, boxes, mask, ds):
+        dim = dims[1:] / ds
+        for ll in range(len(boxes)):
+            # com = center_of_mass(S[ll].reshape(dim))
+            com = unravel_index(argmax(median_filter(S[ll].reshape(dim), 3)), dim)
+            if isnan(com[0]):
+                continue
+            newbox = GetBox(round(com), R / ds, dim)
+            if any(newbox != boxes[ll]):
+                temp = zeros(dim)
+                temp[map(lambda a: slice(*a), newbox)] = 1
+                mask[ll] = where(temp.ravel())[0]
+                S[ll] *= temp.ravel()
+                boxes[ll] = newbox
+        return S, boxes, mask
+
+    def mergeAll(S, activity, boxes, mask, L, ds):
+        dim = dims[1:] / ds
+
+        def merge(S, activity, boxes, mask, i, j, th, purge):
+            # determine merged component
+            sCombined = (S[i] / norm(S[i]) + S[j] / norm(S[j]))
+            aCombined = ((activity[i] * norm(S[i]) + activity[j] * norm(S[j])) / 2.)
+            sa = outer(activity[i], S[i]) + outer(activity[j], S[j])
+            for _ in range(3):
+                A = sCombined.dot(sa.T)
+                B = sCombined.dot(sCombined)
+                aCombined = nan_to_num(A / B)
+                if NonNegative:
+                    aCombined[aCombined < 0] = 0
+                C = aCombined.dot(sa)
+                D = aCombined.dot(aCombined)
+                sCombined = nan_to_num(C / D)
+                if NonNegative:
+                    sCombined[sCombined < 0] = 0
+            shp = sCombined.reshape(dim)
+            com = center_of_mass(shp)
+            newbox = GetBox(round(com), R / ds, dim)
+            temp = zeros(dim)
+            temp[map(lambda a: slice(*a), newbox)] = 1
+            newmask = where(temp.ravel())[0]
+        # calc MSE
+            qq = 0
+            for k in newmask:
+                tmp = aCombined * sCombined[k] - sa[:, k]
+                qq += tmp.dot(tmp)
+            for k in filter(lambda a: a not in newmask, unique(hstack([mask[i], mask[j]]))):
+                qq += sa[:, k].dot(sa[:, k])
+        # merge only if MSE is smaller than some threshold
+            if qq < th * len(newmask) * len(aCombined):  # * sqrt(sa.mean()):
+                S[i] = sCombined * temp.ravel()
+                boxes[i] = newbox
+                mask[i] = newmask
+                activity[i] = aCombined
+                purge += [j]
+                if verbose:
+                    print 'merged', i, 'and ', j
+            return S, activity, boxes, mask, purge
+        purge = []
+        com = zeros((L, D - 1))
+        for ll in range(L):
+            com[ll] = center_of_mass(S[ll].reshape(dim))
+            if isnan(com[ll, 0]):
+                purge += [ll]
+        # com = boxes.mean(2)
+        for l in range(L - 1):
+            if l in purge:
+                continue
+            for k in range(l + 1, L):
+                if k not in purge and norm((com[l] - com[k]) / asarray(sig / ds)) < 2:
+                    S, activity, boxes, mask, purge = merge(
+                        S, activity, boxes, mask, l, k, thresh, purge)
+        idx = filter(lambda x: x not in purge, range(L))
+        mask = asarray(mask)[idx]
+        boxes = asarray(boxes)[idx]
+        if adaptBias:
+            idx = asarray(idx + [L])
+        S = S[idx]
+        activity = activity[idx]
+        L = len(mask)
+        skip = []
+        return S, activity, boxes, mask, L
 
 ### Initialize shapes, activity, and residual ###
     data0 = data[:len(data) / mb * mb].reshape((-1, mb) + data.shape[1:]).mean(1).astype('float32')
@@ -169,7 +267,6 @@ def LocalNMF(data, centers, sig, NonNegative=True, iters=10, verbose=False,
                               ds[0], dims[2] / ds[1], ds[1]).mean(2).mean(3)
         activity = data0[:, map(int, centers[:, 0] / ds[0]), map(int, centers[:, 1] / ds[1])].T
     dims0 = data0.shape
-
     data0 = data0.reshape(dims0[0], -1)
     data = data.astype('float32').reshape(dims[0], -1)
     for ll in range(L):
@@ -199,6 +296,17 @@ def LocalNMF(data, centers, sig, NonNegative=True, iters=10, verbose=False,
             for kk in range(iters0[it]):
                 S = HALS4shape(data0, S, activity)
                 activity = HALS4activity(data0, S, activity)
+                if kk > 10:
+                    if mode == 'rand':
+                        if kk % 3 == 0 and optimizeCenters:
+                            S, boxes, mask = recenter(S, boxes, mask, ds)
+                        if kk % 3 == 1 and thresh is not None:
+                            S, activity, boxes, mask, L = mergeAll(S, activity, boxes, mask, L, ds)
+                    else:
+                        if kk % 20 == 0 and optimizeCenters:
+                            S, boxes, mask = recenter(S, boxes, mask, ds)
+                        if kk % 20 == 5 and thresh is not None:
+                            S, activity, boxes, mask, L = mergeAll(S, activity, boxes, mask, L, ds)
                 # S = HALS4shape(data0, S, activity)
             if it < len(iters0) - 1:
                 mb = mbs[it + 1]
@@ -218,62 +326,27 @@ def LocalNMF(data, centers, sig, NonNegative=True, iters=10, verbose=False,
         activity = ones((L + adaptBias, dims[0]),
                         dtype='float32') * activity.mean(1).reshape(-1, 1)
         if D == 4:
-            S = repeat(
-                repeat(repeat(S.reshape((-1,) + dims0[1:]), ds[0], 1), ds[1], 2), ds[2], 3).reshape(L + adaptBias, -1)
+            S = repeat(repeat(repeat(S.reshape((-1,) + dims0[1:]),
+                                     ds[0], 1), ds[1], 2), ds[2], 3).reshape(L + adaptBias, -1)
         else:
             S = repeat(repeat(S.reshape((-1,) + dims0[1:]),
                               ds[0], 1), ds[1], 2).reshape(L + adaptBias, -1)
         for ll in range(L):
-            boxes[ll] = GetBox(centers[ll], R, dims[1:])
+            #     boxes[ll] = GetBox(centers[ll], R, dims[1:])
+            boxes[ll] *= ds.reshape(-1, 1)
             temp = zeros(dims[1:])
             temp[map(lambda a: slice(*a), boxes[ll])] = 1
             mask[ll] = asarray(where(temp.ravel())[0])
 
+        # from now on more iterations cause initial dot product in HALS is expensive for full data
         activity = HALS4activity(data, S, activity, 7)
         S = HALS4shape(data, S, activity, 7)
 
+
 #### Main Loop ####
     skip = []
-    purge = []
-    com = zeros_like(centers)
     for kk in range(iters):
         S, activity, skip = HALS(data, S, activity, skip, iters=10)  # , check_skip=kk)
-        if kk == 0:
-            # Recenter
-            for ll in range(L):
-                # if S[ll].max() > .3 * norm(S[ll]):  # remove single bright pixel
-                #     purge += [ll]
-                #     continue
-                shp = S[ll].reshape(dims[1:])
-                com[ll] = center_of_mass(shp)
-                newbox = GetBox(round(com[ll]), R, dims[1:])
-                if any(newbox != boxes[ll]):
-                    tmp = RegionCut(asarray([shp]), newbox)
-                    S[ll] = RegionAdd(zeros((1,) + dims[1:]),
-                                      tmp.reshape(1, -1), newbox).ravel()
-                    boxes[ll] = newbox
-                    temp = zeros(dims[1:])
-                    temp[map(lambda a: slice(*a), boxes[ll])] = 1
-                    mask[ll] = where(temp.ravel())[0]
-            corr = corrcoef(activity)
-            # Purge to merge split neurons
-            for l in range(L - 1):
-                if l in purge:
-                    continue
-                for k in range(l + 1, L):
-                    # if corr[l, k] > .95 and norm((com[l] - com[k]) / asarray(sig)) < 1:
-                    if norm((com[l] - com[k]) / asarray(sig)) < 1:
-                        purge += [k]
-                        if verbose:
-                            print 'purged', k, 'in favor of ', l
-            idx = filter(lambda x: x not in purge, range(L))
-            mask = asarray(mask)[idx]
-            if adaptBias:
-                idx = asarray(idx + [L])
-            S = S[idx]
-            activity = activity[idx]
-            L = len(mask)
-            skip = []
 
         # Measure MSE
         if verbose:
